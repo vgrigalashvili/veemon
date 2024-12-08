@@ -18,6 +18,7 @@ type AppConfig struct {
 	RequestTimeout    string `mapstructure:"REQUEST_TIMEOUT"`
 	DatabaseURI       string `mapstructure:"DATABASE_URI"`
 	MigrationURL      string `mapstructure:"MIGRATION_URL"`
+	RedisAddress      string `mapstructure:"REDIS_ADDRESS"`
 	TokenSymmetricKey string `mapstructure:"TOKEN_SYMMETRIC_KEY"`
 }
 
@@ -74,6 +75,11 @@ func SetupEnvironment() (AppConfig, error) {
 			return AppConfig{}, errors.New("DATABASE_URI environment variable not found")
 		}
 
+		redisAddress := os.Getenv("REDIS_ADDRESS")
+		if len(redisAddress) < 1 {
+			return AppConfig{}, errors.New("REDIS_ADDRESS environment variable not found")
+		}
+
 		// Read `TOKEN_SYMMETRIC_KEY` and validate its length.
 		tokenSymmetricKey := os.Getenv("TOKEN_SYMMETRIC_KEY")
 		if len(tokenSymmetricKey) != 32 {
@@ -84,6 +90,7 @@ func SetupEnvironment() (AppConfig, error) {
 		// Set the read values into the `appConfig` struct.
 		appConfig.HttpPort = httpPort
 		appConfig.DatabaseURI = databaseURI
+		appConfig.RedisAddress = redisAddress
 		appConfig.TokenSymmetricKey = tokenSymmetricKey
 
 		log.Println("[DEBUG] Production environment variables loaded successfully")
