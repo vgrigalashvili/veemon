@@ -12,3 +12,10 @@ type UserSignIn struct {
 type UserSignUp struct {
 	Mobile string `json:"mobile" validate:"required,min=9"` // Mobile number, required and with a minimum length of 9 characters.
 }
+
+type UpdateUser struct {
+	Mobile   *string `json:"mobile"`   // Mobile number (optional)
+	Email    *string `json:"email"`    // Email address (optional)
+	Password *string `json:"password"` // Password (optional)
+	// ExpiresAt *time.Time `json:"expiresAt"`                 // Expiration date (optional)
+}

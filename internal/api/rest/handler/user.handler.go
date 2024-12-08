@@ -39,8 +39,8 @@ func InitializeUserHandler(rh *rest.RestHandler) {
 	}
 
 	userService := service.UserService{
-		Token: pasetoMaker,
-		REPO:  repository.NewUserRepository(rh.DB),
+		Token:    pasetoMaker,
+		UserRepo: repository.NewUserRepository(rh.DB),
 	}
 
 	userHandler := UserHandler{
@@ -50,18 +50,19 @@ func InitializeUserHandler(rh *rest.RestHandler) {
 	authMiddleware := middleware.AuthMiddleware(pasetoMaker)
 
 	// public
-	api.Post("/user/sign-up", userHandler.SignUp)
-	api.Post("/user/sign-in", userHandler.SignIn)
+	api.Post("/user/sign-up", userHandler.signUp)
+	api.Post("/user/sign-in", userHandler.signIn)
 
 	// protected
-	api.Get("/user/get-by-mobile", authMiddleware, userHandler.GetUserByMobile)
-	api.Get("/user/get-by-id", authMiddleware, userHandler.GetUserByID)
-	api.Get("/user/get-by-email", authMiddleware, userHandler.GetUserByEmail)
-	api.Get("/user/get-all-users", authMiddleware, userHandler.GetAllUsers)
-	api.Get("/user/count", authMiddleware, userHandler.CountUsers)
+	api.Get("/user/get-by-mobile", authMiddleware, userHandler.getUserByMobile)
+	api.Get("/user/get-by-id", authMiddleware, userHandler.getUserByID)
+	api.Get("/user/get-by-email", authMiddleware, userHandler.getUserByEmail)
+	api.Patch("/user/update-user", authMiddleware, userHandler.updateUser)
+	api.Get("/user/get-all-users", authMiddleware, userHandler.getAllUsers)
+	api.Get("/user/count", authMiddleware, userHandler.countUsers)
 }
 
-func (uh *UserHandler) SignUp(ctx *fiber.Ctx) error {
+func (uh *UserHandler) signUp(ctx *fiber.Ctx) error {
 	var credentials dto.UserSignUp
 	if err := ctx.BodyParser(&credentials); err != nil {
 		log.Printf("[ERROR] invalid request body: %v", err)
@@ -116,7 +117,7 @@ func (uh *UserHandler) SignUp(ctx *fiber.Ctx) error {
 	})
 }
 
-func (uh *UserHandler) SignIn(ctx *fiber.Ctx) error {
+func (uh *UserHandler) signIn(ctx *fiber.Ctx) error {
 	var credentials dto.UserSignIn
 	if err := ctx.BodyParser(&credentials); err != nil {
 		log.Printf("[ERROR] invalid request body: %v", err)
@@ -161,7 +162,7 @@ func (uh *UserHandler) SignIn(ctx *fiber.Ctx) error {
 	})
 }
 
-func (uh *UserHandler) GetUserByMobile(ctx *fiber.Ctx) error {
+func (uh *UserHandler) getUserByMobile(ctx *fiber.Ctx) error {
 	mobileParam := ctx.Query("mobile")
 	log.Printf("[DEBUG] received user mobile parameter: %s", mobileParam)
 
@@ -179,7 +180,7 @@ func (uh *UserHandler) GetUserByMobile(ctx *fiber.Ctx) error {
 		"data":    user,
 	})
 }
-func (uh *UserHandler) GetUserByID(ctx *fiber.Ctx) error {
+func (uh *UserHandler) getUserByID(ctx *fiber.Ctx) error {
 	idParam := ctx.Query("id")
 	log.Printf("[DEBUG] received user ID parameter: %s", idParam)
 	userID, err := uuid.Parse(idParam)
@@ -205,7 +206,7 @@ func (uh *UserHandler) GetUserByID(ctx *fiber.Ctx) error {
 		"data":    user,
 	})
 }
-func (uh *UserHandler) GetUserByEmail(ctx *fiber.Ctx) error {
+func (uh *UserHandler) getUserByEmail(ctx *fiber.Ctx) error {
 	email := ctx.Query("email")
 	if email == "" {
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
@@ -229,7 +230,70 @@ func (uh *UserHandler) GetUserByEmail(ctx *fiber.Ctx) error {
 	})
 }
 
-func (uh *UserHandler) GetAllUsers(ctx *fiber.Ctx) error {
+func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
+	// Parse the user ID from query parameters (or include it in the body, if preferred).
+	idParam := ctx.Query("id")
+	if idParam == "" {
+		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+			"success": false,
+			"data":    "user ID query parameter is required.",
+		})
+	}
+
+	userID, err := uuid.Parse(idParam)
+	if err != nil {
+		log.Printf("[ERROR] invalid user ID format: %v", err)
+		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+			"success": false,
+			"data":    "invalid user ID format.",
+		})
+	}
+
+	// Parse the request body into the DTO.
+	var updateData dto.UpdateUser
+	if err := ctx.BodyParser(&updateData); err != nil {
+		log.Printf("[ERROR] invalid request body: %v", err)
+		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+			"success": false,
+			"data":    "invalid request format.",
+		})
+	}
+
+	// Validate the update data.
+	validate := validator.New()
+	if err := validate.Struct(updateData); err != nil {
+		if validationErrors, ok := err.(validator.ValidationErrors); ok {
+			validationMessages := buildValidationErrorMessages(validationErrors)
+			return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+				"success": false,
+				"data":    validationMessages,
+			})
+		}
+		log.Printf("[ERROR] validation error: %v", err)
+		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+			"success": false,
+			"data":    "validation failed.",
+		})
+	}
+
+	// Call the service to update the user.
+	updatedUser, err := uh.userService.UpdateUser(userID, updateData)
+	if err != nil {
+		log.Printf("[ERROR] failed to update user with ID %s: %v", userID, err)
+		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
+			"success": false,
+			"data":    "error updating user.",
+		})
+	}
+
+	// Return the updated user.
+	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
+		"success": true,
+		"data":    updatedUser,
+	})
+}
+
+func (uh *UserHandler) getAllUsers(ctx *fiber.Ctx) error {
 	users, err := uh.userService.GetAllUsers()
 	if err != nil {
 		log.Printf("[ERROR] error retrieving users: %v", err)
@@ -245,7 +309,7 @@ func (uh *UserHandler) GetAllUsers(ctx *fiber.Ctx) error {
 	})
 }
 
-func (uh *UserHandler) CountUsers(ctx *fiber.Ctx) error {
+func (uh *UserHandler) countUsers(ctx *fiber.Ctx) error {
 	count, err := uh.userService.CountUsers()
 	if err != nil {
 		log.Printf("[ERROR] error while counting users: %v", err)

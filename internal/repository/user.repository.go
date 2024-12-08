@@ -32,9 +32,9 @@ var (
 // It allows for consistent method signatures for implementing user operations.
 type UserRepository interface {
 	AddUser(user domain.User) (domain.User, error)       // Adds a new user to the database.
+	FindUserByID(id uuid.UUID) (domain.User, error)      // Finds a user by their ID.
 	FindUserByMobile(mobile string) (domain.User, error) // Finds a user by their mobile number.
 	FindUserByEmail(email string) (domain.User, error)   // Finds a user by their email address.
-	FindUserByID(id uuid.UUID) (domain.User, error)      // Finds a user by their ID.
 	UpdateUser(user domain.User) (domain.User, error)    // Updates an existing user's details.
 	GetAllUsers() ([]domain.User, error)                 // Retrieves all users from the database.
 	CountUsers() (int, error)                            // Counts the total number of users.
