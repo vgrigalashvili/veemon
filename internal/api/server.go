@@ -81,10 +81,11 @@ func StartServer(appConfig config.AppConfig) {
 	waitGroup, ctx := errgroup.WithContext(ctx)
 
 	// instantiate smtp mailer.
-	mailer := mail.NewSMTPMailer("localhost", "port", "username", "password", "from")
+	mailer := mail.NewSMTPMailer(appConfig.MailerHost, appConfig.MailerPort, appConfig.MailerUserName, appConfig.MailerPassword, "veemon")
 	// Start the task processor.
 	redisAddr := appConfig.RedisAddress
 	log.Printf("[DEBUG] Redis address: %s", redisAddr)
+
 	runTaskProcessor(ctx, waitGroup, redisAddr, db, mailer)
 
 	// Start the Fiber server in a separate goroutine.
@@ -136,8 +137,6 @@ func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr 
 	redisOpt := asynq.RedisClientOpt{
 		Addr: redisAddr,
 	}
-
-	// mailer := mail.NewSMTPMailer()
 
 	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, db, mailer)
 

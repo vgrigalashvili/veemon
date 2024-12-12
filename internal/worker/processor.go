@@ -48,7 +48,7 @@ func NewRedisTaskProcessor(redisOpt asynq.RedisClientOpt, db *gorm.DB, mailer ma
 
 	redisTaskProcessor := &RedisTaskProcessor{
 		server: server,
-		db:     &gorm.DB{},
+		db:     db,
 		mailer: mailer,
 	}
 

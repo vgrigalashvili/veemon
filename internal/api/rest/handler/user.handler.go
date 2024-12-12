@@ -71,7 +71,6 @@ func (uh *UserHandler) signUp(ctx *fiber.Ctx) error {
 			"data":    "invalid request format.",
 		})
 	}
-
 	validate := validator.New()
 	if err := validate.Struct(credentials); err != nil {
 		if validationErrors, ok := err.(validator.ValidationErrors); ok {
