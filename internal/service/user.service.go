@@ -96,6 +96,15 @@ func (us *UserService) FindUserByEmail(email string) (*domain.User, error) {
 // UpdateUser updates the details of an existing user based on the provided arguments.
 // Returns the updated user or an error if the operation fails.
 func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (*domain.User, error) {
+	// Check if all fields in the arguments are nil
+	if arguments.FirstName == nil &&
+		arguments.LastName == nil &&
+		arguments.Mobile == nil &&
+		arguments.Email == nil &&
+		arguments.Password == nil {
+		log.Printf("[INFO] No arguments provided for user update")
+		return nil, fmt.Errorf("nothing to update")
+	}
 	// Fetch the existing user from the database.
 	user, err := us.UserRepo.FindUserByID(userID)
 	if err != nil {
@@ -104,6 +113,12 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (*
 	}
 
 	// Update fields only if they are provided in the arguments.
+	if arguments.FirstName != nil {
+		user.FirstName = *arguments.FirstName
+	}
+	if arguments.LastName != nil {
+		user.LastName = *arguments.LastName
+	}
 	if arguments.Mobile != nil {
 		user.Mobile = *arguments.Mobile
 	}

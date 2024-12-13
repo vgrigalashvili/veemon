@@ -52,7 +52,7 @@ func loadDevelopmentConfig() (AppConfig, error) {
 
 	log.Println("[DEBUG] Loading development environment from .env file")
 
-	viper.SetConfigFile(".env")
+	viper.SetConfigFile("example.env")
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {

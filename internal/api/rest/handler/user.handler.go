@@ -281,7 +281,7 @@ func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] failed to update user with ID %s: %v", userID, err)
 		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
 			"success": false,
-			"data":    "error updating user.",
+			"data":    err.Error(),
 		})
 	}
 
