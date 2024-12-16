@@ -135,16 +135,32 @@ func (uh *UserHandler) getUserByEmail(ctx *fiber.Ctx) error {
 }
 
 func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
-	// Parse the user ID from query parameters (or include it in the body, if preferred).
-	idParam := ctx.Query("id")
-	if idParam == "" {
+	// Extract userID from the token via middleware
+	requesterID := ctx.Locals("userID")
+	if requesterID == nil {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"data":    "unauthorized",
+		})
+	}
+	// Parse the user ID from the request URL
+	requestedID := ctx.Query("id")
+	if requestedID == "" {
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
 			"data":    errUserIDQueryParamRequired,
 		})
 	}
 
-	userID, err := uuid.Parse(idParam)
+	if fmt.Sprint(requestedID) != fmt.Sprint(requesterID) {
+		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"success": false,
+			"data":    "you are not allowed to update this user's information",
+		})
+	}
+
+	// Parse the user ID from query parameters (or include it in the body, if preferred).
+	userID, err := uuid.Parse(requestedID)
 	if err != nil {
 		log.Printf("[ERROR] invalid user ID format: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{

@@ -66,7 +66,7 @@ func AuthMiddleware(tm token.Maker) fiber.Handler {
 
 		// Store the token payload in the request context for later use.
 		ctx.Locals(authorizationPayloadKey, payload)
-
+		ctx.Locals("userID", payload.UserID)
 		// Call the next middleware or handler in the chain.
 		return ctx.Next()
 	}

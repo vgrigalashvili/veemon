@@ -97,7 +97,8 @@ func (us *UserService) FindUserByEmail(email string) (domain.User, error) {
 // Returns the updated user or an error if the operation fails.
 func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (domain.User, error) {
 	// Check if all fields in the arguments are nil
-	if arguments.FirstName == nil &&
+	if arguments.Role == nil &&
+		arguments.FirstName == nil &&
 		arguments.LastName == nil &&
 		arguments.Mobile == nil &&
 		arguments.Email == nil &&
@@ -113,6 +114,9 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 	}
 
 	// Update fields only if they are provided in the arguments.
+	if arguments.Role != nil {
+		user.Role = *arguments.Role
+	}
 	if arguments.FirstName != nil {
 		user.FirstName = *arguments.FirstName
 	}

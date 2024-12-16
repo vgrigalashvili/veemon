@@ -14,10 +14,12 @@ type UserSignUp struct {
 }
 
 type UpdateUser struct {
+	Role      *string `json:"role" validate:"omitempty"`
 	FirstName *string `json:"first_name" validate:"omitempty"`     // First name (optional)
 	LastName  *string `json:"last_name" validate:"omitempty"`      // Last name (optional)
 	Mobile    *string `json:"mobile" validate:"omitempty,min=9"`   // Mobile number (optional, min length 9 if provided)
 	Email     *string `json:"email" validate:"omitempty,email"`    // Email address (optional, must be a valid email if provided)
 	Password  *string `json:"password" validate:"omitempty,min=6"` // Password (optional, min length 6 if provided)
+
 	// ExpiresAt *time.Time `json:"expires_at" validate:"omitempty"`           // Expiration date (optional)
 }
