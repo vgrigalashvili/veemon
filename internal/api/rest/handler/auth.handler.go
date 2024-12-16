@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -27,15 +26,15 @@ func InitializeAuthHandler(rh *rest.RestHandler) {
 		log.Fatalf("[FATAL] error while creating Paseto maker: %v", err)
 	}
 
-	authService := service.AuthService{
+	authService := &service.AuthService{
 		Token: pasetoMaker,
-		UserService: service.UserService{
+		UserService: &service.UserService{
 			UserRepo: repository.NewUserRepository(rh.DB),
 		},
 	}
-
-	authHandler := AuthHandler{
-		authService: authService,
+	log.Printf("[DEBUG] AuthService initialized: %+v", authService)
+	authHandler := &AuthHandler{
+		authService: *authService,
 	}
 	// public
 	api.Post("/sign-up", authHandler.signUp)
@@ -46,12 +45,14 @@ func InitializeAuthHandler(rh *rest.RestHandler) {
 func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 	var credentials dto.UserSignUp
 	if err := ctx.BodyParser(&credentials); err != nil {
-		log.Printf("[ERROR] invalid request body: %v", err)
+		log.Printf("[ERROR] Invalid request body: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
 			"data":    errInvalidRequestFormat,
 		})
 	}
+
+	// Validation logic
 	validate := validator.New()
 	if err := validate.Struct(credentials); err != nil {
 		if validationErrors, ok := err.(validator.ValidationErrors); ok {
@@ -67,13 +68,16 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 		})
 	}
 
+	// Check if the user already exists with the given mobile number.
 	result, err := ah.authService.SignUp(credentials)
+
 	if err != nil {
-		// Check if the error message contains the duplicate mobile message
-		if err.Error() == fmt.Sprintf("user with mobile %s already exists", credentials.Mobile) {
+		log.Printf("[DEBUG] Error: %v", err) // Safe logging
+
+		if err.Error() == "user with this mobile already exists" {
 			return ctx.Status(http.StatusConflict).JSON(&fiber.Map{
 				"success": false,
-				"data":    "a user with this mobile already exists.",
+				"data":    err.Error(),
 			})
 		}
 		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
@@ -81,6 +85,7 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 			"data":    "something went wrong.",
 		})
 	}
+
 	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
 		"success": true,
 		"data":    result,

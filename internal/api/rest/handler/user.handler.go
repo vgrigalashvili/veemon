@@ -18,17 +18,19 @@ import (
 )
 
 var (
+	// common errors
+	errInvalidRequestFormat = errors.New("invalid request format")
+
 	// validation errors
 	errValidationField = errors.New("validation field")
 
-	// user errors
+	// user handler errors
 	errUserNotFound             = errors.New("user not found")
 	errUserIDQueryParamRequired = errors.New("user ID query parameter required")
-	errInvalidUserIDFormat      = errors.New("invalid user ID format")
-	errUniqueMobileComplaint    = errors.New("user with given mobile already exists")
-	errUniqueEmailComplaint     = errors.New("user with given email already exists")
-	errEmailQueryParamRequired  = errors.New("email query parameter required")
-	errInvalidRequestFormat     = errors.New("invalid request format")
+	ErrInvalidUserIDFormat      = errors.New("invalid user ID format")
+	errUniqueMobileComplaint    = errors.New("user with this mobile already exists")
+	// errUniqueEmailComplaint     = errors.New("user with given email already exists")
+	errEmailQueryParamRequired = errors.New("email query parameter required")
 )
 
 type UserHandler struct {
@@ -90,7 +92,7 @@ func (uh *UserHandler) getUserByID(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] invalid user ID format: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    errInvalidUserIDFormat,
+			"data":    ErrInvalidUserIDFormat,
 		})
 	}
 
@@ -147,7 +149,7 @@ func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] invalid user ID format: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    errInvalidUserIDFormat,
+			"data":    ErrInvalidUserIDFormat,
 		})
 	}
 

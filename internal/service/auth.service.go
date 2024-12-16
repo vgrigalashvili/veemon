@@ -2,62 +2,65 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/vgrigalashvili/veemon/internal/domain"
 	"github.com/vgrigalashvili/veemon/internal/dto"
 	"github.com/vgrigalashvili/veemon/internal/helper"
+	"github.com/vgrigalashvili/veemon/internal/repository"
 	"github.com/vgrigalashvili/veemon/internal/token"
+)
+
+var (
+	ErrUserAlreadyExists = errors.New("user with this mobile already exists")
+	ErrUserNotFound      = errors.New("user not found")
+	ErrInvalidPassword   = errors.New("invalid password")
+	ErrExpiredToken      = errors.New("expired token")
+	ErrInvalidToken      = errors.New("invalid token")
 )
 
 type AuthService struct {
 	Token       token.Maker
-	UserService UserService
+	UserService *UserService
 }
 
-// func (as *AuthService) SignUp(args dto.UserSignUp) (string, error) {
-// 	log.Printf("[DEBUG] Starting sign-up process for mobile: %s", args.Mobile)
-
-// 	_, err := as.UserService.FindUserByMobile(args.Mobile)
-// 	if err != nil {
-// 		log.Printf("[ERROR!] Error checking existing user: %v", err)
-// 		return "", err
-// 	}
-
-//		log.Printf("[DEBUG] Creating new user: %+v", args.Mobile)
-//		token, err := as.UserService.AddUser(args)
-//		if err != nil {
-//			log.Printf("[ERROR - authService ] Failed to add user: %v", err)
-//			return "", err
-//		}
-//		log.Printf("[DEBUG] User created successfully: %s", token)
-//		return token, nil
-//	}
 func (as *AuthService) SignUp(args dto.UserSignUp) (string, error) {
 	log.Printf("[DEBUG] Starting sign-up process for mobile: %s", args.Mobile)
 
+	if as.UserService == nil {
+		log.Printf("[ERROR] UserService is nil in AuthService")
+		return "", errors.New("internal server error: UserService is not initialized")
+	}
+
 	existingUser, err := as.UserService.FindUserByMobile(args.Mobile)
-	if err != nil {
+	log.Printf("[DEBUG] Result of FindUserByMobile: %+v, error: %v", existingUser, err)
+
+	if err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
 		log.Printf("[ERROR] Error checking existing user: %v", err)
 		return "", err
 	}
 
-	if existingUser != nil && existingUser.ID != uuid.Nil {
-		return "", fmt.Errorf("user with mobile %s already exists", args.Mobile)
+	if existingUser.ID != uuid.Nil {
+		log.Printf("[ERROR] User with mobile %s already exists", args.Mobile)
+		return "", ErrUserAlreadyExists
 	}
 
 	log.Printf("[DEBUG] Creating new user with mobile: %s", args.Mobile)
 
-	token, err := as.UserService.AddUser(args)
+	newUser := domain.User{
+		Mobile: args.Mobile,
+	}
+
+	userID, err := as.UserService.AddUser(newUser)
 	if err != nil {
 		log.Printf("[ERROR - AuthService] Failed to add user: %v", err)
 		return "", err
 	}
 
-	log.Printf("[DEBUG] User created successfully: %s", token)
-	return token, nil
+	return userID, nil
 }
 
 func (as *AuthService) SignIn(args dto.UserSignIn) (*token.Payload, error) {
