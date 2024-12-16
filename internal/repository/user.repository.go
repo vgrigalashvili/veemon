@@ -52,34 +52,51 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 
 // AddUser inserts a new user record into the database.
 // Returns the created user or an error if the operation fails.
+//
+//	func (ur *userRepository) AddUser(user domain.User) (domain.User, error) {
+//		if err := ur.db.Create(&user).Error; err != nil {
+//			log.Printf("[ERROR - userRepository] Unable to create new user: %v", err)
+//			return domain.User{}, err
+//		}
+//		return user, nil
+//	}
 func (ur *userRepository) AddUser(user domain.User) (domain.User, error) {
-	log.Printf("[DEBUG] Adding user with mobile: %s", user.Mobile)
+	log.Printf("[DEBUG] Attempting to insert user with mobile: %s", user.Mobile)
+
 	if err := ur.db.Create(&user).Error; err != nil {
-		log.Printf("[ERROR] Unable to create new user: %v", err)
-		// Check if the error is a unique constraint violation.
-		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == UniqueViolation {
-			log.Printf("[ERROR] Unique violation for user with mobile: %s", user.Mobile)
-			return domain.User{}, errors.New("user with this mobile already exists")
-		}
-		return domain.User{}, errors.New("unable to create new user")
+		log.Printf("[ERROR - UserRepository] Database error: %v", err)
+		return domain.User{}, err
 	}
-	log.Printf("[DEBUG] User created successfully with ID: %s", user.ID)
+
+	log.Printf("[DEBUG] User inserted successfully with ID: %s", user.ID)
 	return user, nil
 }
 
 // FindUserByMobile retrieves a user by their mobile number.
 // Returns the user or an error if not found or if another error occurs.
+// func (ur *userRepository) FindUserByMobile(mobile string) (domain.User, error) {
+// 	var user domain.User
+// 	result := ur.db.Where("mobile = ?", mobile).First(&user)
+// 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+// 		log.Printf("[ERROR] User with mobile %s not found", mobile)
+// 		return domain.User{}, ErrRecordNotFound
+// 	} else if result.Error != nil {
+// 		log.Printf("[ERROR] Error finding user by mobile %s: %v", mobile, result.Error)
+// 		return domain.User{}, result.Error
+// 	}
+
+//		return user, nil
+//	}
 func (ur *userRepository) FindUserByMobile(mobile string) (domain.User, error) {
 	var user domain.User
 	result := ur.db.Where("mobile = ?", mobile).First(&user)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		log.Printf("[ERROR] User with mobile %s not found", mobile)
+		log.Printf("[DEBUG] User with mobile %s not found", mobile)
 		return domain.User{}, ErrRecordNotFound
 	} else if result.Error != nil {
 		log.Printf("[ERROR] Error finding user by mobile %s: %v", mobile, result.Error)
 		return domain.User{}, result.Error
 	}
-
 	return user, nil
 }
 

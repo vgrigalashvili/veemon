@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aead/chacha20poly1305"
+	"github.com/google/uuid"
 	"github.com/o1egl/paseto"
 )
 
@@ -33,21 +34,23 @@ func NewPasetoMaker(symmetricKey string) (Maker, error) {
 
 // CreateToken generates a new token for a given email and role with a specific duration.
 // Returns the token string, payload, and any error encountered during token creation.
-func (maker *PasetoMaker) CreateToken(email, role string, duration time.Duration) (string, *Payload, error) {
+func (maker *PasetoMaker) CreateToken(userID uuid.UUID, email, role string, duration time.Duration) (*Payload, error) {
 	// Create the payload with email, role, and expiration details.
-	payload, err := NewPayload(email, role, duration)
+	payload, err := NewPayload(userID, email, role, duration)
 	if err != nil {
 		log.Printf("[ERROR] Failed to create payload: %v", err)
-		return "", payload, err
+		return payload, err
 	}
-
 	// Encrypt the payload into a PASETO token.
 	token, err := maker.paseto.Encrypt(maker.symmetricKey, payload, nil)
 	if err != nil {
 		log.Printf("[ERROR] Failed to encrypt token: %v", err)
-		return "", payload, err
+		return payload, err
 	}
-	return token, payload, nil
+
+	payload.Token = token
+
+	return payload, err
 }
 
 // VerifyToken decrypts and validates a given token string.

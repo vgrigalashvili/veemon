@@ -3,12 +3,19 @@
 package middleware
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/vgrigalashvili/veemon/internal/token"
+)
+
+var (
+	ErrAuthHeaderRequired               = errors.New("authorization header required")
+	ErrInvalidAuthorizationHeaderFormat = errors.New("authorization header format is not valid")
+	ErrInvalidOrExpiredToken            = errors.New("invalid or expired token")
 )
 
 const (
@@ -19,7 +26,7 @@ const (
 
 // AuthMiddleware is a middleware function that validates the authorization token in incoming requests.
 // It uses the provided token maker to verify the token and stores the payload in the request context.
-func AuthMiddleware(tokenMaker token.Maker) fiber.Handler {
+func AuthMiddleware(tm token.Maker) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		// Retrieve the authorization header.
 		authHeader := ctx.Get(authorizationHeaderKey)
@@ -28,7 +35,7 @@ func AuthMiddleware(tokenMaker token.Maker) fiber.Handler {
 			// Return a 401 Unauthorized response if the header is missing.
 			return ctx.Status(http.StatusUnauthorized).JSON(&fiber.Map{
 				"success": false,
-				"data":    "authorization header is required",
+				"data":    ErrAuthHeaderRequired,
 			})
 		}
 
@@ -39,7 +46,7 @@ func AuthMiddleware(tokenMaker token.Maker) fiber.Handler {
 			// Return a 401 Unauthorized response for invalid format.
 			return ctx.Status(http.StatusUnauthorized).JSON(&fiber.Map{
 				"success": false,
-				"data":    "invalid authorization header format",
+				"data":    ErrInvalidAuthorizationHeaderFormat,
 			})
 		}
 
@@ -47,13 +54,13 @@ func AuthMiddleware(tokenMaker token.Maker) fiber.Handler {
 		tokenString := parts[1]
 
 		// Verify the token using the token maker.
-		payload, err := tokenMaker.VerifyToken(tokenString)
+		payload, err := tm.VerifyToken(tokenString)
 		if err != nil {
 			log.Printf("[ERROR] Token verification failed: %v", err)
 			// Return a 401 Unauthorized response if the token is invalid or expired.
 			return ctx.Status(http.StatusUnauthorized).JSON(&fiber.Map{
 				"success": false,
-				"data":    "invalid or expired token",
+				"data":    ErrInvalidOrExpiredToken,
 			})
 		}
 

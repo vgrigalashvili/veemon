@@ -3,6 +3,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -12,23 +13,58 @@ import (
 	"github.com/vgrigalashvili/veemon/internal/dto"
 	"github.com/vgrigalashvili/veemon/internal/helper"
 	"github.com/vgrigalashvili/veemon/internal/repository"
-	"github.com/vgrigalashvili/veemon/internal/token"
 )
 
 // UserService is responsible for user-related operations and business logic.
 // It combines repository interactions with additional processes such as password hashing and token generation.
 type UserService struct {
-	Token    token.Maker               // Token maker for creating and validating tokens.
+	// Token    token.Maker               // Token maker for creating and validating tokens.
 	UserRepo repository.UserRepository // UserRepository interface for user data access.
 }
 
 // AddUser creates a new user based on provided input arguments and saves it to the database.
 // Returns the new user's ID as a string or an error if the operation fails.
-func (us *UserService) AddUser(arguments dto.UserSignUp) (string, error) {
-	// Set expiration date for one month from the current time.
-	expiry := time.Now().AddDate(0, 1, 0)
+// func (us *UserService) AddUser(args dto.UserSignUp) (string, error) {
+// 	log.Printf("[DEBUG] Inserting user with mobile: %s", args.Mobile)
 
-	// Generate a password and handle any errors.
+// 	// Set expiration date for one month from the current time.
+// 	expiry := time.Now().AddDate(0, 1, 0)
+
+// 	// Generate a password and handle any errors.
+// 	password, err := helper.GeneratePassword()
+// 	log.Printf("[INFO]: Generating password %v", password)
+// 	if err != nil {
+// 		log.Printf("[ERROR] Failed to generate password: %v", err)
+// 		return "", fmt.Errorf("failed to generate password: %w", err)
+// 	}
+
+// 	// Hash the generated password and handle errors.
+// 	hashedPassword, err := helper.HashPassword(password)
+// 	if err != nil {
+// 		log.Printf("[ERROR] Failed to hash password: %v", err)
+// 		return "", fmt.Errorf("failed to hash the password: %w", err)
+// 	}
+
+// 	// Construct a new user entity.
+// 	user := domain.User{
+// 		ID:        uuid.New(), // Generate a new UUID for the user ID.
+// 		Mobile:    args.Mobile,
+// 		Password:  hashedPassword,
+// 		ExpiresAt: &expiry, // Set expiration date.
+// 	}
+
+// 	// Add the new user to the database using the repository.
+// 	createdUser, err := us.UserRepo.AddUser(user)
+// 	if err != nil {
+// 		log.Printf("[ERROR - userService] Failed to add user to the database: %v", err)
+// 		return "", err
+// 	}
+// 	return createdUser.ID.String(), nil
+// }
+
+func (us *UserService) AddUser(args dto.UserSignUp) (string, error) {
+	log.Printf("[DEBUG] Inserting user with mobile: %s", args.Mobile)
+
 	password, err := helper.GeneratePassword()
 	log.Printf("[INFO]: Generating password %v", password)
 	if err != nil {
@@ -36,27 +72,28 @@ func (us *UserService) AddUser(arguments dto.UserSignUp) (string, error) {
 		return "", fmt.Errorf("failed to generate password: %w", err)
 	}
 
-	// Hash the generated password and handle errors.
+	expiry := time.Now().AddDate(0, 1, 0)
 	hashedPassword, err := helper.HashPassword(password)
 	if err != nil {
 		log.Printf("[ERROR] Failed to hash password: %v", err)
 		return "", fmt.Errorf("failed to hash the password: %w", err)
 	}
 
-	// Construct a new user entity.
 	user := domain.User{
-		ID:        uuid.New(), // Generate a new UUID for the user ID.
-		Mobile:    arguments.Mobile,
+		ID:        uuid.New(),
+		Mobile:    args.Mobile,
 		Password:  hashedPassword,
-		ExpiresAt: &expiry, // Set expiration date.
+		ExpiresAt: &expiry,
 	}
 
-	// Add the new user to the database using the repository.
+	log.Printf("[DEBUG] User entity: %+v", user)
+
 	createdUser, err := us.UserRepo.AddUser(user)
 	if err != nil {
-		log.Printf("[ERROR] Failed to add user to the database: %v", err)
-		return "", fmt.Errorf("failed to add user: %w", err)
+		log.Printf("[ERROR - UserService] Failed to add user to the database: %v", err)
+		return "", err
 	}
+
 	return createdUser.ID.String(), nil
 }
 
@@ -76,8 +113,11 @@ func (us *UserService) FindUserByID(userID uuid.UUID) (*domain.User, error) {
 func (us *UserService) FindUserByMobile(mobile string) (*domain.User, error) {
 	user, err := us.UserRepo.FindUserByMobile(mobile)
 	if err != nil {
-		log.Printf("[ERROR] Error finding user by mobile %s: %v", mobile, err)
-		return nil, fmt.Errorf("could not find user by mobile: %w", err)
+		if errors.Is(err, repository.ErrRecordNotFound) {
+			return nil, nil // No user found, not an error
+		}
+		log.Printf("[ERROR] Error finding user by mobile: %v", err)
+		return nil, err // Actual error occurred
 	}
 	return &user, nil
 }

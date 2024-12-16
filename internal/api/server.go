@@ -128,6 +128,7 @@ func runMigrations(db *gorm.DB) {
 // initializeHandlers sets up API route handlers for the given RestHandler.
 func initializeHandlers(rh *rest.RestHandler) {
 	log.Println("[DEBUG] Initializing user handlers")
+	handler.InitializeAuthHandler(rh)
 	handler.InitializeUserHandler(rh)
 	log.Println("[INFO] User handlers initialized")
 }
