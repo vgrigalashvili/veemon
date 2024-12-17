@@ -71,6 +71,5 @@ func (maker *PasetoMaker) VerifyToken(token string) (*Payload, error) {
 		log.Printf("[ERROR] Token validation failed: %v", err)
 		return nil, err
 	}
-
 	return payload, nil
 }

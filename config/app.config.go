@@ -29,7 +29,7 @@ type AppConfig struct {
 // SetupEnvironment reads and sets up the application environment configuration.
 func SetupEnvironment() (AppConfig, error) {
 	env := getEnvWithDefault("APP_ENV", "production")
-	log.Printf("[DEBUG] Environment set to: %s", env)
+	log.Printf("[DEBUG] application running in: %s", env)
 
 	if env == "dev" {
 		return loadDevelopmentConfig()
@@ -50,7 +50,7 @@ func getEnvWithDefault(key, defaultValue string) string {
 func loadDevelopmentConfig() (AppConfig, error) {
 	var appConfig AppConfig
 
-	log.Println("[DEBUG] Loading development environment from .env file")
+	log.Println("[DEBUG] loading development environment from .env file")
 
 	viper.SetConfigFile("example.env")
 	viper.AutomaticEnv()
@@ -90,7 +90,7 @@ func loadDevelopmentConfig() (AppConfig, error) {
 		return AppConfig{}, errors.New("TOKEN_SYMMETRIC_KEY must be exactly 32 characters long")
 	}
 
-	log.Println("[DEBUG] Development environment variables loaded successfully")
+	log.Println("[DEBUG] development environment loaded successfully!")
 	return appConfig, nil
 }
 

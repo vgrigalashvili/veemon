@@ -10,16 +10,16 @@ import (
 )
 
 func main() {
-	log.Println("[INFO] Starting Veemon application")
+	log.Println("[INFO] veemon entry point!")
 
 	// Load application configuration from environment variables or configuration files.
 	appConfig, err := config.SetupEnvironment()
 	if err != nil {
 		log.Fatalf("[ERROR] Could not set up environment: %v", err)
 	}
-	log.Println("[INFO] Application environment setup successfully")
+	log.Println("[INFO] development environment ready to run!")
 
 	// Start the API server with the loaded configuration.
 	api.StartServer(appConfig)
-	log.Println("[INFO] Veemon application shutting down")
+	log.Println("[INFO] veemon application shutting down, falwell...")
 }

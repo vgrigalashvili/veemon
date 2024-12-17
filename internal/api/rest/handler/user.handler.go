@@ -143,6 +143,13 @@ func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
 			"data":    "unauthorized",
 		})
 	}
+	requesterRole := ctx.Locals("userRole")
+	if requesterRole == "" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"data":    "you are not verified user",
+		})
+	}
 	// Parse the user ID from the request URL
 	requestedID := ctx.Query("id")
 	if requestedID == "" {
@@ -152,7 +159,7 @@ func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
 		})
 	}
 
-	if fmt.Sprint(requestedID) != fmt.Sprint(requesterID) {
+	if fmt.Sprint(requestedID) != fmt.Sprint(requesterID) && fmt.Sprint(requesterRole) != "super" {
 		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"success": false,
 			"data":    "you are not allowed to update this user's information",

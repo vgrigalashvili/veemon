@@ -32,7 +32,7 @@ func InitializeAuthHandler(rh *rest.RestHandler) {
 			UserRepo: repository.NewUserRepository(rh.DB),
 		},
 	}
-	log.Printf("[DEBUG] AuthService initialized: %+v", authService)
+
 	authHandler := &AuthHandler{
 		authService: *authService,
 	}
@@ -45,7 +45,7 @@ func InitializeAuthHandler(rh *rest.RestHandler) {
 func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 	var credentials dto.UserSignUp
 	if err := ctx.BodyParser(&credentials); err != nil {
-		log.Printf("[ERROR] Invalid request body: %v", err)
+		log.Printf("[ERROR] invalid request body: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
 			"data":    errInvalidRequestFormat,
@@ -72,8 +72,6 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 	result, err := ah.authService.SignUp(credentials)
 
 	if err != nil {
-		log.Printf("[DEBUG] Error: %v", err) // Safe logging
-
 		if err.Error() == "user with this mobile already exists" {
 			return ctx.Status(http.StatusConflict).JSON(&fiber.Map{
 				"success": false,
@@ -82,7 +80,7 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 		}
 		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
 			"success": false,
-			"data":    "something went wrong.",
+			"data":    "something went wrong",
 		})
 	}
 

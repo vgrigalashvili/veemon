@@ -30,7 +30,7 @@ import (
 
 // StartServer initializes and starts the Fiber API server with the given configuration.
 func StartServer(appConfig config.AppConfig) {
-	log.Println("[INFO] Starting server initialization")
+	log.Println("[INFO] starting server initialization")
 
 	// Create a new Fiber app with configuration.
 	api := fiber.New(fiber.Config{
@@ -60,7 +60,7 @@ func StartServer(appConfig config.AppConfig) {
 	if err != nil {
 		log.Fatalf("[ERROR] Database connection error: %v", err)
 	}
-	log.Println("[INFO] Database connection established")
+	log.Println("[INFO] database connection established!")
 
 	// Configure database connection pooling.
 	configureDatabaseConnection(db)
@@ -84,13 +84,13 @@ func StartServer(appConfig config.AppConfig) {
 	mailer := mail.NewSMTPMailer(appConfig.MailerHost, appConfig.MailerPort, appConfig.MailerUserName, appConfig.MailerPassword, "veemon")
 	// Start the task processor.
 	redisAddr := appConfig.RedisAddress
-	log.Printf("[DEBUG] Redis address: %s", redisAddr)
+	log.Printf("[DEBUG] redis address: %s", redisAddr)
 
 	runTaskProcessor(ctx, waitGroup, redisAddr, db, mailer)
 
 	// Start the Fiber server in a separate goroutine.
 	waitGroup.Go(func() error {
-		log.Printf("[INFO] Starting Fiber server on port %s", appConfig.HttpPort)
+		log.Printf("[INFO] starting Fiber server on port %s", appConfig.HttpPort)
 		if err := api.Listen(appConfig.HttpPort); err != nil {
 			log.Fatalf("[ERROR] Couldn't start server: %v", err)
 			return err
@@ -101,14 +101,14 @@ func StartServer(appConfig config.AppConfig) {
 	// Handle graceful shutdown.
 	handleGracefulShutdown(api, cancel, waitGroup)
 
-	log.Println("[INFO] Server exited cleanly")
+	log.Println("[INFO] server exited cleanly")
 }
 
 // configureDatabaseConnection configures database connection pooling.
 func configureDatabaseConnection(db *gorm.DB) {
 	pgDB, err := db.DB()
 	if err != nil {
-		log.Fatalf("[ERROR] Failed to get raw database connection: %v", err)
+		log.Fatalf("[ERROR] failed to get raw database connection: %v", err)
 	}
 
 	pgDB.SetMaxIdleConns(10)
@@ -118,19 +118,21 @@ func configureDatabaseConnection(db *gorm.DB) {
 
 // runMigrations performs database migrations.
 func runMigrations(db *gorm.DB) {
-	log.Println("[INFO] Running database migrations...")
+	log.Println("[INFO] running database migrations...")
 	if err := db.AutoMigrate(&domain.User{}, &domain.VerifyEmail{}); err != nil {
-		log.Fatalf("[ERROR] AutoMigrate failed: %v", err)
+		log.Fatalf("[ERROR] auto migrate failed: %v", err)
 	}
-	log.Println("[INFO] Database migrations completed")
+	log.Println("[INFO] database migrations completed")
 }
 
 // initializeHandlers sets up API route handlers for the given RestHandler.
 func initializeHandlers(rh *rest.RestHandler) {
-	log.Println("[DEBUG] Initializing user handlers")
-	handler.InitializeAuthHandler(rh)
+	log.Println("[DEBUG] initializing user handler...")
 	handler.InitializeUserHandler(rh)
-	log.Println("[INFO] User handlers initialized")
+	log.Println("[INFO] user handler initialized!")
+	log.Println("[DEBUG] initializing auth handler...")
+	handler.InitializeAuthHandler(rh)
+	log.Println("[INFO] auth handler initialized!")
 }
 
 // runTaskProcessor starts the Redis task processor and manages its lifecycle.
@@ -142,9 +144,9 @@ func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr 
 	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, db, mailer)
 
 	waitGroup.Go(func() error {
-		log.Println("[INFO] Starting task processor...")
+		log.Println("[INFO] starting task processor...")
 		if err := taskProcessor.Start(); err != nil {
-			log.Fatalf("[ERROR] Failed to start task processor: %v", err)
+			log.Fatalf("[ERROR] failed to start task processor: %v", err)
 			return err
 		}
 		return nil
@@ -152,9 +154,9 @@ func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr 
 
 	waitGroup.Go(func() error {
 		<-ctx.Done()
-		log.Println("[INFO] Graceful shutdown of task processor...")
+		log.Println("[INFO] graceful shutdown of task processor...")
 		taskProcessor.Shutdown()
-		log.Println("[INFO] Task processor stopped.")
+		log.Println("[INFO] task processor stopped.")
 		return nil
 	})
 }

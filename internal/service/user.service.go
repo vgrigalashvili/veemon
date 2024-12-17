@@ -18,12 +18,10 @@ import (
 // UserService is responsible for user-related operations and business logic.
 // It combines repository interactions with additional processes such as password hashing and token generation.
 type UserService struct {
-	// Token    token.Maker               // Token maker for creating and validating tokens.
 	UserRepo repository.UserRepository // UserRepository interface for user data access.
 }
 
 func (us *UserService) AddUser(args domain.User) (string, error) {
-	log.Printf("[DEBUG] Inserting user with mobile: %s", args.Mobile)
 
 	password, err := helper.GeneratePassword()
 	log.Printf("[INFO]: Generating password %v", password)
@@ -145,7 +143,7 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 	// Save the updated user to the database.
 	updatedUser, err := us.UserRepo.UpdateUser(user)
 	if err != nil {
-		log.Printf("[ERROR] Failed to update user in the database: %v", err)
+		log.Printf("[ERROR] failed to update user in the database: %v", err)
 		return domain.User{}, fmt.Errorf("failed to update user: %w", err)
 	}
 

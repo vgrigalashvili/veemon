@@ -28,27 +28,20 @@ type AuthService struct {
 }
 
 func (as *AuthService) SignUp(args dto.UserSignUp) (string, error) {
-	log.Printf("[DEBUG] Starting sign-up process for mobile: %s", args.Mobile)
-
 	if as.UserService == nil {
-		log.Printf("[ERROR] UserService is nil in AuthService")
 		return "", errors.New("internal server error: UserService is not initialized")
 	}
 
 	existingUser, err := as.UserService.FindUserByMobile(args.Mobile)
-	log.Printf("[DEBUG] Result of FindUserByMobile: %+v, error: %v", existingUser, err)
-
 	if err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
-		log.Printf("[ERROR] Error checking existing user: %v", err)
+		log.Printf("[ERROR] checking existing user: %v", err)
 		return "", err
 	}
 
 	if existingUser.ID != uuid.Nil {
-		log.Printf("[ERROR] User with mobile %s already exists", args.Mobile)
+		log.Printf("[ERROR] user with mobile %s already exists", args.Mobile)
 		return "", ErrUserAlreadyExists
 	}
-
-	log.Printf("[DEBUG] Creating new user with mobile: %s", args.Mobile)
 
 	newUser := domain.User{
 		Mobile: args.Mobile,
@@ -56,7 +49,7 @@ func (as *AuthService) SignUp(args dto.UserSignUp) (string, error) {
 
 	userID, err := as.UserService.AddUser(newUser)
 	if err != nil {
-		log.Printf("[ERROR - AuthService] Failed to add user: %v", err)
+		log.Printf("[ERROR] failed to add user: %v", err)
 		return "", err
 	}
 
@@ -64,7 +57,6 @@ func (as *AuthService) SignUp(args dto.UserSignUp) (string, error) {
 }
 
 func (as *AuthService) SignIn(args dto.UserSignIn) (*token.Payload, error) {
-
 	existedUser, err := as.UserService.FindUserByMobile(args.Mobile)
 	if err != nil {
 		log.Printf("[ERROR] sign-in failed for mobile %s: user not found or database error: %v", args.Mobile, err)
