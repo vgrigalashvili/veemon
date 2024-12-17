@@ -5,8 +5,8 @@ package main
 import (
 	"log"
 
-	"github.com/vgrigalashvili/veemon/config"
 	"github.com/vgrigalashvili/veemon/internal/api"
+	"github.com/vgrigalashvili/veemon/internal/config"
 )
 
 func main() {

@@ -47,7 +47,6 @@ func InitializeUserHandler(rh *rest.RestHandler) {
 	}
 
 	userService := service.UserService{
-		// Token:    pasetoMaker,
 		UserRepo: repository.NewUserRepository(rh.DB),
 	}
 
