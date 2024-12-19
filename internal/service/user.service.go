@@ -37,15 +37,14 @@ func (us *UserService) AddUser(args domain.User) (string, error) {
 		return "", fmt.Errorf("failed to hash the password: %w", err)
 	}
 
-	user := domain.User{
-		ID:        uuid.New(),
-		Mobile:    args.Mobile,
-		Password:  hashedPassword,
-		ExpiresAt: &expiry,
-	}
+	user := args
 
+	user.ID = uuid.New()
+	user.Password = hashedPassword
+	user.ExpiresAt = &expiry
+
+	log.Printf("[INFO] %v", user)
 	log.Printf("[DEBUG] User entity: %+v", user)
-
 	createdUser, err := us.UserRepo.AddUser(user)
 	if err != nil {
 		log.Printf("[ERROR - UserService] Failed to add user to the database: %v", err)

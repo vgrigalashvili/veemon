@@ -16,7 +16,7 @@ type User struct {
 	UpdatedAt time.Time      // The timestamp when the user record was last updated.
 	DeletedAt gorm.DeletedAt `gorm:"index"` // Soft delete field with an index for querying.
 
-	Role      string     `json:"role" gorm:"type:string"`                                               // The role assigned to the user (e.g., admin, user).
+	Role      string     `json:"role" gorm:"type:varchar(255);default:'user'"`                          // The role assigned to the user (e.g., admin, user).
 	FirstName string     `json:"first_name"`                                                            // The first name of the user.
 	LastName  string     `json:"last_name"`                                                             // The last name of the user.
 	Email     string     `json:"email" gorm:"index;unique;default:NULL"`                                // The email of the user, unique.

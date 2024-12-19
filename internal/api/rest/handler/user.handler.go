@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/vgrigalashvili/veemon/internal/api/rest"
 	"github.com/vgrigalashvili/veemon/internal/api/rest/middleware"
+	"github.com/vgrigalashvili/veemon/internal/domain"
 	"github.com/vgrigalashvili/veemon/internal/dto"
 	"github.com/vgrigalashvili/veemon/internal/repository"
 	"github.com/vgrigalashvili/veemon/internal/service"
@@ -57,12 +58,72 @@ func InitializeUserHandler(rh *rest.RestHandler) {
 	authMiddleware := middleware.AuthMiddleware(pasetoMaker)
 
 	// protected
+	api.Post("/user/add-user", authMiddleware, userHandler.addUser)
 	api.Get("/user/get-by-mobile", authMiddleware, userHandler.getUserByMobile)
 	api.Get("/user/get-by-id", authMiddleware, userHandler.getUserByID)
 	api.Get("/user/get-by-email", authMiddleware, userHandler.getUserByEmail)
 	api.Patch("/user/update-user", authMiddleware, userHandler.updateUser)
 	api.Get("/user/get-all-users", authMiddleware, userHandler.getAllUsers)
 	api.Get("/user/count", authMiddleware, userHandler.countUsers)
+}
+
+func (uh *UserHandler) addUser(ctx *fiber.Ctx) error {
+	// Parse the request body into the DTO.
+	var userData dto.CreateUser
+	if err := ctx.BodyParser(&userData); err != nil {
+		log.Printf("[ERROR] invalid request body: %v", err)
+		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+			"success": false,
+			"data":    errInvalidRequestFormat,
+		})
+	}
+
+	// Validate the input data.
+	validate := validator.New()
+	if err := validate.Struct(userData); err != nil {
+		if validationErrors, ok := err.(validator.ValidationErrors); ok {
+			validationMessages := buildValidationErrorMessages(validationErrors)
+			return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+				"success": false,
+				"data":    validationMessages,
+			})
+		}
+		log.Printf("[ERROR] validation error: %v", err)
+		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+			"success": false,
+			"data":    errValidationField,
+		})
+	}
+
+	user := domain.User{
+		FirstName: userData.FirstName,
+		LastName:  userData.LastName,
+		Mobile:    userData.Mobile,
+		Email:     userData.Email,
+		Role:      userData.Role,
+	}
+
+	// Call the service to create the user.
+	userID, err := uh.userService.AddUser(user)
+	if err != nil {
+		log.Printf("[ERROR] failed to create user: %v", err)
+		if errors.Is(err, errUniqueMobileComplaint) {
+			return ctx.Status(http.StatusConflict).JSON(&fiber.Map{
+				"success": false,
+				"data":    errUniqueMobileComplaint.Error(),
+			})
+		}
+		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
+			"success": false,
+			"data":    "Failed to create user.",
+		})
+	}
+
+	// Return the created user.
+	return ctx.Status(http.StatusCreated).JSON(&fiber.Map{
+		"success": true,
+		"data":    userID,
+	})
 }
 
 func (uh *UserHandler) getUserByMobile(ctx *fiber.Ctx) error {
