@@ -43,7 +43,7 @@ func InitializeAuthHandler(rh *rest.RestHandler) {
 }
 
 func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
-	var credentials dto.UserSignUp
+	var credentials dto.AuthSignUp
 	if err := ctx.BodyParser(&credentials); err != nil {
 		log.Printf("[ERROR] invalid request body: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
@@ -91,7 +91,7 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 }
 
 func (uh *AuthHandler) signIn(ctx *fiber.Ctx) error {
-	var credentials dto.UserSignIn
+	var credentials dto.AuthSignIn
 	if err := ctx.BodyParser(&credentials); err != nil {
 		log.Printf("[ERROR] invalid request body: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{

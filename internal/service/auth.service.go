@@ -27,7 +27,7 @@ type AuthService struct {
 	UserService *UserService
 }
 
-func (as *AuthService) SignUp(args dto.UserSignUp) (string, error) {
+func (as *AuthService) SignUp(args dto.AuthSignUp) (string, error) {
 	if as.UserService == nil {
 		return "", errors.New("internal server error: UserService is not initialized")
 	}
@@ -56,7 +56,7 @@ func (as *AuthService) SignUp(args dto.UserSignUp) (string, error) {
 	return userID, nil
 }
 
-func (as *AuthService) SignIn(args dto.UserSignIn) (*token.Payload, error) {
+func (as *AuthService) SignIn(args dto.AuthSignIn) (*token.Payload, error) {
 	existedUser, err := as.UserService.FindUserByMobile(args.Mobile)
 	if err != nil {
 		log.Printf("[ERROR] sign-in failed for mobile %s: user not found or database error: %v", args.Mobile, err)
