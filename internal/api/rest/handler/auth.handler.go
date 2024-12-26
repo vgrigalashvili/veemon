@@ -12,7 +12,7 @@ import (
 )
 
 type AuthHandler struct {
-	authService service.AuthService
+	authService *service.AuthService
 }
 
 func InitializeAuthHandler(rh *rest.RestHandler) {

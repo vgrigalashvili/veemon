@@ -27,6 +27,12 @@ type AuthService struct {
 	UserService *UserService
 }
 
+func NewAuthService(token token.Maker, userService *UserService) *AuthService {
+	return &AuthService{
+		Token:       token,
+		UserService: userService,
+	}
+}
 func (as *AuthService) SignUp(args dto.AuthSignUp) (string, error) {
 	if as.UserService == nil {
 		return "", errors.New("internal server error: UserService is not initialized")

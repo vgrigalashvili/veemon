@@ -72,16 +72,14 @@ func StartServer(ac config.AppConfig) {
 	setupDatabaseConnection(db)
 	runMigrations(db)
 
-	authService := service.AuthService{}
-	userService := service.UserService{
-		UserRepo: repository.NewUserRepository(db),
-	}
-
 	// REST handler.
 	tokenMaker, err := token.NewPasetoMaker(ac.TokenSymmetricKey)
 	if err != nil {
 		log.Fatalf("[FATAL] error while creating Paseto maker: %v", err)
 	}
+	userRepository := repository.NewUserRepository(db)
+	userService := service.NewUserService(userRepository)
+	authService := service.NewAuthService(tokenMaker, userService)
 
 	restHandler := &rest.RestHandler{
 		API:         api,
