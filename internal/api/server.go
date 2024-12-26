@@ -17,9 +17,12 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/vgrigalashvili/veemon/internal/api/rest"
 	"github.com/vgrigalashvili/veemon/internal/api/rest/handler"
-	"github.com/vgrigalashvili/veemon/internal/api/rest/middleware"
 	"github.com/vgrigalashvili/veemon/internal/config"
 	"github.com/vgrigalashvili/veemon/internal/domain"
+	"github.com/vgrigalashvili/veemon/internal/repository"
+	"github.com/vgrigalashvili/veemon/internal/service"
+	"github.com/vgrigalashvili/veemon/internal/token"
+
 	"github.com/vgrigalashvili/veemon/internal/mail"
 	"github.com/vgrigalashvili/veemon/internal/worker"
 	"golang.org/x/sync/errgroup"
@@ -28,11 +31,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// StartServer initializes and starts the Fiber API server with the given configuration.
-func StartServer(appConfig config.AppConfig) {
-	log.Println("[INFO] starting server initialization")
+// performs initialization and starts the Fiber API server with the given configuration.
+func StartServer(ac config.AppConfig) {
 
-	// Create a new Fiber app with configuration.
+	// initialize a new Fiber app with configuration.
 	api := fiber.New(fiber.Config{
 		AppName:       "veemon api v1.0.0",
 		CaseSensitive: true,
@@ -41,101 +43,107 @@ func StartServer(appConfig config.AppConfig) {
 		BodyLimit:     1 * 1024, // Limit request body size to 1KB.
 	})
 
-	// Set up middleware for the app.
+	// initialize middlewares.
 	api.Use(
-		logger.New(), // Logger middleware for request logging.
+		logger.New(), // logger middleware for request logging.
+
+		// CORS middleware for handling cross-origin resource sharing (CORS).
 		cors.New(cors.Config{
-			AllowOrigins: "*", // Allow all origins.
+			AllowOrigins: "*", // allow all origins.
 			AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
 		}),
+
+		// limiter middleware for handling rate limiting.
 		limiter.New(limiter.Config{
-			Max:        100,             // Max 100 requests per minute.
+			Max:        100,             // max 100 requests per minute.
 			Expiration: 1 * time.Minute, // Expiration time for rate limiting.
 		}),
-		middleware.ResponseDurationLogger, // Custom middleware to log response duration.
+		// TODO: middleware.RequestIDGenerator, // Custom middleware to generate request IDs.
+		// TODO: middleware.ResponseDurationLogger, // Custom middleware to log response duration.
 	)
 
-	// Initialize the database connection using GORM and PostgreSQL driver.
-	db, err := gorm.Open(postgres.Open(appConfig.DatabaseURI), &gorm.Config{})
+	// initialize services with the necessary components.
+
+	// database connection using GORM and PostgreSQL driver.
+	db, err := gorm.Open(postgres.Open(ac.DatabaseURI), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("[ERROR] Database connection error: %v", err)
 	}
-	log.Println("[INFO] database connection established!")
-
-	// Configure database connection pooling.
-	configureDatabaseConnection(db)
-
-	// Run database migrations for required entities.
+	setupDatabaseConnection(db)
 	runMigrations(db)
 
-	// Create a RestHandler with necessary components.
-	restHandler := &rest.RestHandler{
-		API: api,
-		DB:  db,
-		SEC: appConfig.TokenSymmetricKey,
+	authService := service.AuthService{}
+	userService := service.UserService{
+		UserRepo: repository.NewUserRepository(db),
 	}
-	initializeHandlers(restHandler)
 
-	// Create a root context with cancellation.
+	// REST handler.
+	tokenMaker, err := token.NewPasetoMaker(ac.TokenSymmetricKey)
+	if err != nil {
+		log.Fatalf("[FATAL] error while creating Paseto maker: %v", err)
+	}
+
+	restHandler := &rest.RestHandler{
+		API:         api,
+		Token:       tokenMaker,
+		AuthService: authService,
+		UserService: userService,
+		DB:          db,
+	}
+	initializeHandler(restHandler)
+
+	// root context with cancellation.
 	ctx, cancel := context.WithCancel(context.Background())
 	waitGroup, ctx := errgroup.WithContext(ctx)
 
-	// instantiate smtp mailer.
-	mailer := mail.NewSMTPMailer(appConfig.MailerHost, appConfig.MailerPort, appConfig.MailerUserName, appConfig.MailerPassword, "veemon")
-	// Start the task processor.
-	redisAddr := appConfig.RedisAddress
+	// smtp mailer.
+	mailer := mail.NewSMTPMailer(ac.MailerHost, ac.MailerPort, ac.MailerUserName, ac.MailerPassword, "veemon")
+
+	// initialize task processor.
+
+	// redis client.
+	redisAddr := ac.RedisAddress
 	log.Printf("[DEBUG] redis address: %s", redisAddr)
 
 	runTaskProcessor(ctx, waitGroup, redisAddr, db, mailer)
 
-	// Start the Fiber server in a separate goroutine.
+	// start the Fiber server in a separate goroutine.
 	waitGroup.Go(func() error {
-		log.Printf("[INFO] starting Fiber server on port %s", appConfig.HttpPort)
-		if err := api.Listen(appConfig.HttpPort); err != nil {
+		if err := api.Listen(ac.HttpPort); err != nil {
 			log.Fatalf("[ERROR] Couldn't start server: %v", err)
 			return err
 		}
 		return nil
 	})
 
-	// Handle graceful shutdown.
 	handleGracefulShutdown(api, cancel, waitGroup)
-
-	log.Println("[INFO] server exited cleanly")
 }
 
-// configureDatabaseConnection configures database connection pooling.
-func configureDatabaseConnection(db *gorm.DB) {
+// performs database connection pooling setup.
+func setupDatabaseConnection(db *gorm.DB) {
 	pgDB, err := db.DB()
 	if err != nil {
 		log.Fatalf("[ERROR] failed to get raw database connection: %v", err)
 	}
-
 	pgDB.SetMaxIdleConns(10)
 	pgDB.SetMaxOpenConns(100)
 	pgDB.SetConnMaxLifetime(time.Hour)
 }
 
-// runMigrations performs database migrations.
+// performs database migrations.
 func runMigrations(db *gorm.DB) {
-	log.Println("[INFO] running database migrations...")
 	if err := db.AutoMigrate(&domain.User{}, &domain.VerifyEmail{}); err != nil {
 		log.Fatalf("[ERROR] auto migrate failed: %v", err)
 	}
-	log.Println("[INFO] database migrations completed")
 }
 
-// initializeHandlers sets up API route handlers for the given RestHandler.
-func initializeHandlers(rh *rest.RestHandler) {
-	log.Println("[DEBUG] initializing user handler...")
+// performs initialization of the REST handlers.
+func initializeHandler(rh *rest.RestHandler) {
 	handler.InitializeUserHandler(rh)
-	log.Println("[INFO] user handler initialized!")
-	log.Println("[DEBUG] initializing auth handler...")
 	handler.InitializeAuthHandler(rh)
-	log.Println("[INFO] auth handler initialized!")
 }
 
-// runTaskProcessor starts the Redis task processor and manages its lifecycle.
+// performs initialization of "redis task processor" and manages its lifecycle.
 func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr string, db *gorm.DB, mailer mail.EmailSender) {
 	redisOpt := asynq.RedisClientOpt{
 		Addr: redisAddr,
@@ -144,7 +152,6 @@ func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr 
 	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, db, mailer)
 
 	waitGroup.Go(func() error {
-		log.Println("[INFO] starting task processor...")
 		if err := taskProcessor.Start(); err != nil {
 			log.Fatalf("[ERROR] failed to start task processor: %v", err)
 			return err
@@ -161,20 +168,19 @@ func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr 
 	})
 }
 
-// handleGracefulShutdown manages the graceful shutdown of the server and its components.
+// performs the graceful shutdown of the server and its components.
 func handleGracefulShutdown(api *fiber.App, cancel context.CancelFunc, waitGroup *errgroup.Group) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	<-quit
-	log.Println("[INFO] Shutting down server...")
+	log.Println("[INFO] shutting down server...")
 	cancel()
 
 	if err := api.Shutdown(); err != nil {
-		log.Fatalf("[ERROR] Server forced to shutdown: %v", err)
+		log.Fatalf("[ERROR] server forced to shutdown: %v", err)
 	}
-
 	if err := waitGroup.Wait(); err != nil {
-		log.Fatalf("[ERROR] Error during shutdown: %v", err)
+		log.Fatalf("[ERROR] error during shutdown: %v", err)
 	}
 }

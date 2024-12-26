@@ -34,7 +34,7 @@ func (as *AuthService) SignUp(args dto.AuthSignUp) (string, error) {
 
 	existingUser, err := as.UserService.FindUserByMobile(args.Mobile)
 	if err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
-		log.Printf("[ERROR] checking existing user: %v", err)
+		log.Printf("[ERROR] not found: %v", err)
 		return "", err
 	}
 

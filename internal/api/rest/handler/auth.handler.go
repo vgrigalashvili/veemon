@@ -8,9 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/vgrigalashvili/veemon/internal/api/rest"
 	"github.com/vgrigalashvili/veemon/internal/dto"
-	"github.com/vgrigalashvili/veemon/internal/repository"
 	"github.com/vgrigalashvili/veemon/internal/service"
-	"github.com/vgrigalashvili/veemon/internal/token"
 )
 
 type AuthHandler struct {
@@ -21,20 +19,8 @@ func InitializeAuthHandler(rh *rest.RestHandler) {
 
 	api := rh.API
 
-	pasetoMaker, err := token.NewPasetoMaker(rh.SEC)
-	if err != nil {
-		log.Fatalf("[FATAL] error while creating Paseto maker: %v", err)
-	}
-
-	authService := &service.AuthService{
-		Token: pasetoMaker,
-		UserService: &service.UserService{
-			UserRepo: repository.NewUserRepository(rh.DB),
-		},
-	}
-
 	authHandler := &AuthHandler{
-		authService: *authService,
+		authService: rh.AuthService,
 	}
 	// public
 	api.Post("/sign-up", authHandler.signUp)
@@ -43,18 +29,18 @@ func InitializeAuthHandler(rh *rest.RestHandler) {
 }
 
 func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
-	var credentials dto.AuthSignUp
-	if err := ctx.BodyParser(&credentials); err != nil {
+	var request dto.AuthSignUp
+	if err := ctx.BodyParser(&request); err != nil {
 		log.Printf("[ERROR] invalid request body: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    errInvalidRequestFormat,
+			"data":    rest.ErrInvalidRequestJSON,
 		})
 	}
 
 	// Validation logic
 	validate := validator.New()
-	if err := validate.Struct(credentials); err != nil {
+	if err := validate.Struct(request); err != nil {
 		if validationErrors, ok := err.(validator.ValidationErrors); ok {
 			validationMessages := buildValidationErrorMessages(validationErrors)
 			return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
@@ -69,13 +55,13 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 	}
 
 	// Check if the user already exists with the given mobile number.
-	result, err := ah.authService.SignUp(credentials)
-
+	result, err := ah.authService.SignUp(request)
 	if err != nil {
+		log.Printf("[ERROR] failed to sign up: %v", err)
 		if err.Error() == "user with this mobile already exists" {
 			return ctx.Status(http.StatusConflict).JSON(&fiber.Map{
 				"success": false,
-				"data":    err.Error(),
+				"data":    "you already have registered with this mobile",
 			})
 		}
 		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
@@ -96,7 +82,7 @@ func (uh *AuthHandler) signIn(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] invalid request body: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    errInvalidRequestFormat,
+			"data":    rest.ErrInvalidRequestJSON,
 		})
 	}
 	token, err := uh.authService.SignIn(credentials)

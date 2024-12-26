@@ -15,50 +15,42 @@ import (
 	"github.com/vgrigalashvili/veemon/internal/dto"
 	"github.com/vgrigalashvili/veemon/internal/repository"
 	"github.com/vgrigalashvili/veemon/internal/service"
-	"github.com/vgrigalashvili/veemon/internal/token"
 )
 
 var (
-	// common errors
-	errInvalidRequestFormat = errors.New("invalid request format")
-
 	// validation errors
 	errValidationField = errors.New("validation field")
 
 	// user handler errors
-	errUserNotFound             = errors.New("user not found")
-	errUserIDQueryParamRequired = errors.New("user ID query parameter required")
-	ErrInvalidUserIDFormat      = errors.New("invalid user ID format")
-	errUniqueMobileComplaint    = errors.New("user with this mobile already exists")
+	errUserNotFound          = errors.New("user not found")
+	ErrInvalidUserIDFormat   = errors.New("invalid user ID format")
+	errUniqueMobileComplaint = errors.New("user with this mobile already exists")
 	// errUniqueEmailComplaint     = errors.New("user with given email already exists")
-	errEmailQueryParamRequired = errors.New("email query parameter required")
+
 )
 
 type UserHandler struct {
-	userService service.UserService
+	userService *service.UserService
+	handleError func(ctx *fiber.Ctx, err error) error // error handler function for handling API errors.
 }
 
 func InitializeUserHandler(rh *rest.RestHandler) {
 
 	api := rh.API
+	errorHandler := &rest.DefaultAPIErrorHandler{}
 
-	pasetoMaker, err := token.NewPasetoMaker(rh.SEC)
-	if err != nil {
-		log.Fatalf("[FATAL] error while creating Paseto maker: %v", err)
-	}
-
-	userService := service.UserService{
+	userService := &service.UserService{
 		UserRepo: repository.NewUserRepository(rh.DB),
 	}
 
-	userHandler := UserHandler{
+	userHandler := &UserHandler{
 		userService: userService,
+		handleError: errorHandler.HandleError,
 	}
 
-	authMiddleware := middleware.AuthMiddleware(pasetoMaker)
-
+	authMiddleware := middleware.AuthMiddleware(rh.Token)
 	// protected
-	api.Post("/user/add-user", authMiddleware, userHandler.addUser)
+	api.Post("/user/add-user", userHandler.addUser)
 	api.Get("/user/get-by-mobile", authMiddleware, userHandler.getUserByMobile)
 	api.Get("/user/get-by-id", authMiddleware, userHandler.getUserByID)
 	api.Get("/user/get-by-email", authMiddleware, userHandler.getUserByEmail)
@@ -68,14 +60,17 @@ func InitializeUserHandler(rh *rest.RestHandler) {
 }
 
 func (uh *UserHandler) addUser(ctx *fiber.Ctx) error {
+
 	// Parse the request body into the DTO.
 	var userData dto.CreateUser
 	if err := ctx.BodyParser(&userData); err != nil {
 		log.Printf("[ERROR] invalid request body: %v", err)
-		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
-			"success": false,
-			"data":    errInvalidRequestFormat,
-		})
+		return uh.handleError(ctx, rest.ErrInvalidRequestJSON)
+		// return uh.handleError(ctx, err)
+		// return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+		// 	"success": false,
+		// 	"data":    rest.ErrInvalidRequestJSON,
+		// })
 	}
 
 	// Validate the input data.
@@ -91,7 +86,7 @@ func (uh *UserHandler) addUser(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] validation error: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    errValidationField,
+			"data":    rest.ErrValidationField,
 		})
 	}
 
@@ -102,7 +97,6 @@ func (uh *UserHandler) addUser(ctx *fiber.Ctx) error {
 		Email:     userData.Email,
 		Role:      userData.Role,
 	}
-
 	// Call the service to create the user.
 	userID, err := uh.userService.AddUser(user)
 	if err != nil {
@@ -110,12 +104,14 @@ func (uh *UserHandler) addUser(ctx *fiber.Ctx) error {
 		if errors.Is(err, errUniqueMobileComplaint) {
 			return ctx.Status(http.StatusConflict).JSON(&fiber.Map{
 				"success": false,
-				"data":    errUniqueMobileComplaint.Error(),
+
+				// TODO: update error
+				"data": errUniqueMobileComplaint.Error(),
 			})
 		}
 		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
 			"success": false,
-			"data":    "Failed to create user.",
+			"data":    "failed to create user.",
 		})
 	}
 
@@ -175,7 +171,7 @@ func (uh *UserHandler) getUserByEmail(ctx *fiber.Ctx) error {
 	if email == "" {
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    errEmailQueryParamRequired,
+			"data":    rest.ErrEmailQueryParamRequired,
 		})
 	}
 
@@ -200,14 +196,14 @@ func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
 	if requesterID == nil {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
-			"data":    "unauthorized",
+			"data":    rest.ErrUnauthorized,
 		})
 	}
 	requesterRole := ctx.Locals("userRole")
 	if requesterRole == "" {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
-			"data":    "you are not verified user",
+			"data":    rest.ErrUnverified,
 		})
 	}
 	// Parse the user ID from the request URL
@@ -215,7 +211,7 @@ func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
 	if requestedID == "" {
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    errUserIDQueryParamRequired,
+			"data":    rest.ErrInvalidQueryParam,
 		})
 	}
 
@@ -239,10 +235,10 @@ func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
 	// Parse the request body into the DTO.
 	var updateData dto.UpdateUser
 	if err := ctx.BodyParser(&updateData); err != nil {
-		log.Printf("[ERROR] invalid request body: %v", err)
+		log.Printf("[ERROR] invalid JSON body in request: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    errInvalidRequestFormat,
+			"data":    rest.ErrInvalidRequestJSON,
 		})
 	}
 
@@ -259,7 +255,7 @@ func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] validation error: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    errValidationField,
+			"data":    rest.ErrValidationField,
 		})
 	}
 
@@ -269,7 +265,8 @@ func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] failed to update user with ID %s: %v", userID, err)
 		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
 			"success": false,
-			"data":    err.Error(),
+			// TODO: update error
+			"data": err.Error(),
 		})
 	}
 

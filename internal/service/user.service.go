@@ -21,6 +21,12 @@ type UserService struct {
 	UserRepo repository.UserRepository // UserRepository interface for user data access.
 }
 
+func NewUserService(userRepo repository.UserRepository) *UserService {
+	if userRepo == nil {
+		log.Fatalf("[FATAL] UserRepository cannot be nil")
+	}
+	return &UserService{UserRepo: userRepo}
+}
 func (us *UserService) AddUser(args domain.User) (string, error) {
 
 	password, err := helper.GeneratePassword()
@@ -68,6 +74,11 @@ func (us *UserService) FindUserByID(userID uuid.UUID) (domain.User, error) {
 // FindUserByMobile retrieves a user by their mobile number.
 // Returns the user or an error if the user could not be found or if an error occurs.
 func (us *UserService) FindUserByMobile(mobile string) (domain.User, error) {
+	log.Printf("[INFO] userRepo : %v", us.UserRepo)
+	if us.UserRepo == nil {
+		log.Printf("[ERROR] UserRepo is not initialized")
+		return domain.User{}, fmt.Errorf("UserRepo is not initialized")
+	}
 	user, err := us.UserRepo.FindUserByMobile(mobile)
 	if err != nil {
 		if errors.Is(err, repository.ErrRecordNotFound) {
