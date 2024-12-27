@@ -1,5 +1,7 @@
 // Package api is responsible for setting up and starting the API server.
-// It configures middleware, routes, and database connections.
+// It provides middleware configuration, route handling, database integration,
+// and task processing for the Veemon application.
+
 package api
 
 import (
@@ -19,52 +21,46 @@ import (
 	"github.com/vgrigalashvili/veemon/internal/api/rest/handler"
 	"github.com/vgrigalashvili/veemon/internal/config"
 	"github.com/vgrigalashvili/veemon/internal/domain"
+	"github.com/vgrigalashvili/veemon/internal/mail"
 	"github.com/vgrigalashvili/veemon/internal/repository"
 	"github.com/vgrigalashvili/veemon/internal/service"
 	"github.com/vgrigalashvili/veemon/internal/token"
-
-	"github.com/vgrigalashvili/veemon/internal/mail"
 	"github.com/vgrigalashvili/veemon/internal/worker"
 	"golang.org/x/sync/errgroup"
-
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-// performs initialization and starts the Fiber API server with the given configuration.
+// StartServer initializes and starts the API server.
+// It sets up middleware, routes, database connections, and task processing.
 func StartServer(ac config.AppConfig) {
 
-	// initialize a new Fiber app with configuration.
 	api := fiber.New(fiber.Config{
 		AppName:       "veemon api v1.0.0",
 		CaseSensitive: true,
 		StrictRouting: true,
 		ServerHeader:  "veemon",
-		BodyLimit:     1 * 1024, // Limit request body size to 1KB.
+		BodyLimit:     1 * 1024,
 	})
 
-	// initialize middlewares.
-	api.Use(
-		logger.New(), // logger middleware for request logging.
+	// Log configuration details for debugging.
+	log.Printf("[INFO] Starting Fiber with config: AppName=%s, CaseSensitive=%v, StrictRouting=%v, BodyLimit=%d",
+		api.Config().AppName, api.Config().CaseSensitive, api.Config().StrictRouting, api.Config().BodyLimit)
 
-		// CORS middleware for handling cross-origin resource sharing (CORS).
+	// Configure middleware for the API server.
+	api.Use(
+		logger.New(),
 		cors.New(cors.Config{
-			AllowOrigins: "*", // allow all origins.
+			AllowOrigins: "*",
 			AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
 		}),
-
-		// limiter middleware for handling rate limiting.
 		limiter.New(limiter.Config{
-			Max:        100,             // max 100 requests per minute.
-			Expiration: 1 * time.Minute, // Expiration time for rate limiting.
+			Max:        100,
+			Expiration: 1 * time.Minute,
 		}),
-		// TODO: middleware.RequestIDGenerator, // Custom middleware to generate request IDs.
-		// TODO: middleware.ResponseDurationLogger, // Custom middleware to log response duration.
 	)
 
-	// initialize services with the necessary components.
-
-	// database connection using GORM and PostgreSQL driver.
+	// Set up the database connection.
 	db, err := gorm.Open(postgres.Open(ac.DatabaseURI), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("[ERROR] Database connection error: %v", err)
@@ -72,11 +68,13 @@ func StartServer(ac config.AppConfig) {
 	setupDatabaseConnection(db)
 	runMigrations(db)
 
-	// REST handler.
+	// Initialize the token maker.
 	tokenMaker, err := token.NewPasetoMaker(ac.TokenSymmetricKey)
 	if err != nil {
 		log.Fatalf("[FATAL] error while creating Paseto maker: %v", err)
 	}
+
+	// Initialize services and handlers.
 	userRepository := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepository)
 	authService := service.NewAuthService(tokenMaker, userService)
@@ -90,22 +88,19 @@ func StartServer(ac config.AppConfig) {
 	}
 	initializeHandler(restHandler)
 
-	// root context with cancellation.
+	// Set up context and error group for managing goroutines.
 	ctx, cancel := context.WithCancel(context.Background())
 	waitGroup, ctx := errgroup.WithContext(ctx)
 
-	// smtp mailer.
+	// Initialize the mailer.
 	mailer := mail.NewSMTPMailer(ac.MailerHost, ac.MailerPort, ac.MailerUserName, ac.MailerPassword, "veemon")
 
-	// initialize task processor.
-
-	// redis client.
+	// Set up the task processor.
 	redisAddr := ac.RedisAddress
 	log.Printf("[DEBUG] redis address: %s", redisAddr)
-
 	runTaskProcessor(ctx, waitGroup, redisAddr, db, mailer)
 
-	// start the Fiber server in a separate goroutine.
+	// Start the API server.
 	waitGroup.Go(func() error {
 		if err := api.Listen(ac.HttpPort); err != nil {
 			log.Fatalf("[ERROR] Couldn't start server: %v", err)
@@ -114,10 +109,11 @@ func StartServer(ac config.AppConfig) {
 		return nil
 	})
 
+	// Handle graceful shutdown.
 	handleGracefulShutdown(api, cancel, waitGroup)
 }
 
-// performs database connection pooling setup.
+// setupDatabaseConnection configures the database connection pool settings.
 func setupDatabaseConnection(db *gorm.DB) {
 	pgDB, err := db.DB()
 	if err != nil {
@@ -128,27 +124,27 @@ func setupDatabaseConnection(db *gorm.DB) {
 	pgDB.SetConnMaxLifetime(time.Hour)
 }
 
-// performs database migrations.
+// runMigrations runs the database migrations to set up necessary schemas.
 func runMigrations(db *gorm.DB) {
 	if err := db.AutoMigrate(&domain.User{}, &domain.VerifyEmail{}); err != nil {
 		log.Fatalf("[ERROR] auto migrate failed: %v", err)
 	}
 }
 
-// performs initialization of the REST handlers.
+// initializeHandler sets up the REST API handlers for the application.
 func initializeHandler(rh *rest.RestHandler) {
 	handler.InitializeUserHandler(rh)
 	handler.InitializeAuthHandler(rh)
 }
 
-// performs initialization of "redis task processor" and manages its lifecycle.
+// runTaskProcessor starts the task processor for handling background tasks.
 func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr string, db *gorm.DB, mailer mail.EmailSender) {
 	redisOpt := asynq.RedisClientOpt{
 		Addr: redisAddr,
 	}
-
 	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, db, mailer)
 
+	// Start the task processor.
 	waitGroup.Go(func() error {
 		if err := taskProcessor.Start(); err != nil {
 			log.Fatalf("[ERROR] failed to start task processor: %v", err)
@@ -157,6 +153,7 @@ func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr 
 		return nil
 	})
 
+	// Handle task processor shutdown.
 	waitGroup.Go(func() error {
 		<-ctx.Done()
 		log.Println("[INFO] graceful shutdown of task processor...")
@@ -166,7 +163,7 @@ func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr 
 	})
 }
 
-// performs the graceful shutdown of the server and its components.
+// handleGracefulShutdown manages graceful shutdown of the API server and other resources.
 func handleGracefulShutdown(api *fiber.App, cancel context.CancelFunc, waitGroup *errgroup.Group) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -178,7 +175,10 @@ func handleGracefulShutdown(api *fiber.App, cancel context.CancelFunc, waitGroup
 	if err := api.Shutdown(); err != nil {
 		log.Fatalf("[ERROR] server forced to shutdown: %v", err)
 	}
+
 	if err := waitGroup.Wait(); err != nil {
-		log.Fatalf("[ERROR] error during shutdown: %v", err)
+		log.Printf("[WARN] shutdown completed with errors: %v", err)
+	} else {
+		log.Println("[INFO] graceful shutdown completed successfully.")
 	}
 }
