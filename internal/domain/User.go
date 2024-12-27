@@ -1,5 +1,3 @@
-// Package domain defines the structure for the User entity used in the application.
-// This struct is designed for use with GORM, an ORM library for Go.
 package domain
 
 import (
@@ -9,7 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// User represents a user in the system with relevant fields and metadata for GORM.
 type User struct {
 	ID        uuid.UUID      `json:"id" gorm:"type:uuid;primaryKey"`
 	CreatedAt time.Time      // The timestamp when the user record was created.

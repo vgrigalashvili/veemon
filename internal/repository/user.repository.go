@@ -1,4 +1,3 @@
-// Package repository provides data access to user entities using GORM and PostgreSQL.
 package repository
 
 import (
@@ -15,39 +14,32 @@ import (
 )
 
 const (
-	// PostgreSQL error codes for constraint violations.
-	ForeignKeyViolation = "23503" // Code for foreign key violation errors.
-	UniqueViolation     = "23505" // Code for unique constraint violation errors.
+	ForeignKeyViolation = "23503"
+	UniqueViolation     = "23505"
 )
 
 var (
-	// ErrRecordNotFound is returned when a database query does not find a record.
 	ErrRecordNotFound = pgx.ErrNoRows
 
-	// ErrUniqueViolation represents a unique constraint violation error.
 	ErrUniqueViolation = &pgconn.PgError{
 		Code: UniqueViolation,
 	}
 )
 
-// UserRepository defines the interface for user-related database operations.
-// It allows for consistent method signatures for implementing user operations.
 type UserRepository interface {
-	AddUser(user domain.User) (domain.User, error)       // Adds a new user to the database.
-	FindUserByID(id uuid.UUID) (domain.User, error)      // Finds a user by their ID.
-	FindUserByMobile(mobile string) (domain.User, error) // Finds a user by their mobile number.
-	FindUserByEmail(email string) (domain.User, error)   // Finds a user by their email address.
-	UpdateUser(user domain.User) (domain.User, error)    // Updates an existing user's details.
-	GetAllUsers() ([]domain.User, error)                 // Retrieves all users from the database.
-	CountUsers() (int, error)                            // Counts the total number of users.
+	AddUser(user domain.User) (domain.User, error)
+	FindUserByID(id uuid.UUID) (domain.User, error)
+	FindUserByMobile(mobile string) (domain.User, error)
+	FindUserByEmail(email string) (domain.User, error)
+	UpdateUser(user domain.User) (domain.User, error)
+	GetAllUsers() ([]domain.User, error)
+	CountUsers() (int, error)
 }
 
-// userRepository is the concrete implementation of UserRepository.
 type userRepository struct {
 	db *gorm.DB // Database connection instance.
 }
 
-// NewUserRepository creates and returns a new userRepository instance.
 func NewUserRepository(db *gorm.DB) UserRepository {
 	return &userRepository{db: db}
 }
@@ -62,7 +54,6 @@ func (ur *userRepository) AddUser(user domain.User) (domain.User, error) {
 			return domain.User{}, fmt.Errorf("user with mobile %s already exists", user.Mobile)
 		}
 
-		// Log and return generic database error
 		log.Printf("[ERROR - UserRepository] Database error: %v", err)
 		return domain.User{}, fmt.Errorf("database error: %w", err)
 	}
@@ -84,8 +75,6 @@ func (ur *userRepository) FindUserByMobile(mobile string) (domain.User, error) {
 	return user, nil
 }
 
-// FindUserByEmail retrieves a user by their email address.
-// Returns the user or an error if not found or if another error occurs.
 func (ur *userRepository) FindUserByEmail(email string) (domain.User, error) {
 	var user domain.User
 	result := ur.db.Where("email = ?", email).First(&user)
@@ -100,8 +89,6 @@ func (ur *userRepository) FindUserByEmail(email string) (domain.User, error) {
 	return user, nil
 }
 
-// FindUserByID retrieves a user by their ID.
-// Returns the user or an error if not found or if another error occurs.
 func (ur *userRepository) FindUserByID(id uuid.UUID) (domain.User, error) {
 	var user domain.User
 	result := ur.db.Where("id = ?", id).First(&user)
@@ -115,8 +102,6 @@ func (ur *userRepository) FindUserByID(id uuid.UUID) (domain.User, error) {
 	return user, nil
 }
 
-// UpdateUser updates an existing user's details in the database.
-// Returns the updated user or an error if the operation fails.
 func (ur *userRepository) UpdateUser(user domain.User) (domain.User, error) {
 	if err := ur.db.Save(&user).Error; err != nil {
 		log.Printf("[ERROR] Error updating user with ID %s: %v", user.ID, err)
@@ -125,8 +110,6 @@ func (ur *userRepository) UpdateUser(user domain.User) (domain.User, error) {
 	return user, nil
 }
 
-// GetAllUsers retrieves all user records from the database.
-// Returns a slice of users or an error if the operation fails.
 func (ur *userRepository) GetAllUsers() ([]domain.User, error) {
 	var users []domain.User
 	if err := ur.db.Find(&users).Error; err != nil {
@@ -136,8 +119,6 @@ func (ur *userRepository) GetAllUsers() ([]domain.User, error) {
 	return users, nil
 }
 
-// CountUsers counts the total number of users in the database.
-// Returns the count or an error if the operation fails.
 func (ur *userRepository) CountUsers() (int, error) {
 	var count int64
 	if err := ur.db.Model(&domain.User{}).Count(&count).Error; err != nil {
