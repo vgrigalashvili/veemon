@@ -1,0 +1,23 @@
+# sqlc.yaml: Configuration file for sqlc, a Go code generator for SQL queries.
+version: '2' # Specify the version of the sqlc configuration schema.
+
+sql:
+  - schema: 'internal/db/migration' # Path to the directory containing SQL schema files (DDL).
+    queries: 'internal/db/query' # Path to the directory containing SQL query files (DML).
+    engine: 'postgresql' # The database engine being used. Options include 'postgresql', 'mysql', etc.
+
+    gen: # Code generation configuration.
+      go:
+        package: 'db' # The Go package name for the generated code.
+        out: 'internal/db/sqlc' # Output directory for the generated code.
+        sql_package: 'pgx/v5' # The Go SQL driver package. 'pgx/v5' is a high-performance PostgreSQL driver.
+        emit_json_tags: true # Emit JSON tags for struct fields for easier marshalling/unmarshalling.
+        emit_interface: true # Generate interfaces for the queries for easier mocking and testing.
+        emit_empty_slices: true # Return empty slices instead of nil when no rows are returned.
+
+        overrides: # Customize type mappings for specific PostgreSQL data types.
+          - db_type: 'timestamptz' # PostgreSQL data type 'timestamptz' (timestamp with time zone).
+            go_type: 'time.Time' # Map 'timestamptz' to Go's built-in `time.Time` type.
+
+          - db_type: 'uuid' # PostgreSQL data type 'uuid'.
+            go_type: 'github.com/google/uuid.UUID' # Map 'uuid' to `UUID` type from the 'github.com/google/uuid' package.
