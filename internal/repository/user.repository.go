@@ -1,129 +1,197 @@
 package repository
 
 import (
+	"context"
 	"errors"
-	"fmt"
-	"log"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/pgtype"
+	db "github.com/vgrigalashvili/veemon/internal/db/sqlc"
 	"github.com/vgrigalashvili/veemon/internal/domain"
-	"gorm.io/gorm"
 )
 
-const (
-	ForeignKeyViolation = "23503"
-	UniqueViolation     = "23505"
-)
-
-var (
-	ErrRecordNotFound = pgx.ErrNoRows
-
-	ErrUniqueViolation = &pgconn.PgError{
-		Code: UniqueViolation,
-	}
-)
-
+// UserRepository defines the methods for interacting with the user data store.
 type UserRepository interface {
-	AddUser(user domain.User) (domain.User, error)
-	FindUserByID(id uuid.UUID) (domain.User, error)
-	FindUserByMobile(mobile string) (domain.User, error)
-	FindUserByEmail(email string) (domain.User, error)
-	UpdateUser(user domain.User) (domain.User, error)
-	GetAllUsers() ([]domain.User, error)
-	CountUsers() (int, error)
+	CreateUser(ctx context.Context, user domain.User) (domain.User, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, error)
+	GetAllUsers(ctx context.Context, limit, offset int) ([]domain.User, error)
+	CheckUserExistsByMobile(ctx context.Context, mobile string) (bool, error)
+	CheckUserExistsByEmail(ctx context.Context, email string) (bool, error)
+	UpdateUser(ctx context.Context, user domain.User) (domain.User, error)
+	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
+	HardDeleteUser(ctx context.Context, id uuid.UUID) error
 }
 
+// userRepository implements the UserRepository interface using sqlc.
 type userRepository struct {
-	db *gorm.DB // Database connection instance.
+	connPool *pgx.ConnPool
+	queries  *db.Queries
 }
 
-func NewUserRepository(db *gorm.DB) UserRepository {
-	return &userRepository{db: db}
+// NewUserRepository creates a new instance of userRepository.
+func NewUserRepository(connPool *pgx.ConnPool, queries *db.Queries) UserRepository {
+	return &userRepository{
+		connPool: connPool,
+		queries:  queries,
+	}
 }
-func (ur *userRepository) AddUser(user domain.User) (domain.User, error) {
-	log.Printf("[DEBUG] Attempting to insert user with mobile: %s", user.Mobile)
 
-	if err := ur.db.Create(&user).Error; err != nil { // Pass by reference
-		// Check for PostgreSQL duplicate key violation
-		var pgErr *pq.Error
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.Constraint == "uni_users_mobile" {
-			log.Printf("[ERROR - UserRepository] User with mobile %s already exists", user.Mobile)
-			return domain.User{}, fmt.Errorf("user with mobile %s already exists", user.Mobile)
+// CreateUser inserts a new user into the database.
+func (ur *userRepository) CreateUser(ctx context.Context, user domain.User) (domain.User, error) {
+	err := ur.queries.CreateUser(ctx, db.CreateUserParams{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Role:      user.Role,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		Mobile:    user.Mobile,
+		Password:  user.Password,
+		Code:      user.Code,
+		Verified:  user.Verified,
+		UserType:  user.UserType,
+		ExpiresAt: user.ExpiresAt,
+	})
+	if err != nil {
+		return domain.User{}, err
+	}
+	return mapDBUserToDomainUser(dbUser), nil
+}
+
+// GetUserByID retrieves a user by ID, excluding soft-deleted users.
+func (ur *userRepository) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, error) {
+	dbUser, err := ur.queries.GetUserByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, db.ErrNoRows) {
+			return domain.User{}, errors.New("user not found")
 		}
-
-		log.Printf("[ERROR - UserRepository] Database error: %v", err)
-		return domain.User{}, fmt.Errorf("database error: %w", err)
+		return domain.User{}, err
 	}
-
-	log.Printf("[DEBUG] User inserted successfully with mobile: %s", user.Mobile)
-	return user, nil
+	return mapDBUserToDomainUser(dbUser), nil
 }
 
-func (ur *userRepository) FindUserByMobile(mobile string) (domain.User, error) {
-	var user domain.User
-	result := ur.db.Where("mobile = ?", mobile).First(&user)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		log.Printf("[DEBUG] User with mobile %s not found", mobile)
-		return domain.User{}, ErrRecordNotFound
-	} else if result.Error != nil {
-		log.Printf("[ERROR] Error finding user by mobile %s: %v", mobile, result.Error)
-		return domain.User{}, result.Error
-	}
-	return user, nil
-}
-
-func (ur *userRepository) FindUserByEmail(email string) (domain.User, error) {
-	var user domain.User
-	result := ur.db.Where("email = ?", email).First(&user)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		log.Printf("[ERROR] User with email %s not found", email)
-		return domain.User{}, ErrRecordNotFound
-	} else if result.Error != nil {
-		log.Printf("[ERROR] Error finding user by email %s: %v", email, result.Error)
-		return domain.User{}, result.Error
-	}
-
-	return user, nil
-}
-
-func (ur *userRepository) FindUserByID(id uuid.UUID) (domain.User, error) {
-	var user domain.User
-	result := ur.db.Where("id = ?", id).First(&user)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		log.Printf("[ERROR] User with ID %s not found", id)
-		return domain.User{}, ErrRecordNotFound
-	} else if result.Error != nil {
-		log.Printf("[ERROR] Error finding user by ID %s: %v", id, result.Error)
-		return domain.User{}, result.Error
-	}
-	return user, nil
-}
-
-func (ur *userRepository) UpdateUser(user domain.User) (domain.User, error) {
-	if err := ur.db.Save(&user).Error; err != nil {
-		log.Printf("[ERROR] Error updating user with ID %s: %v", user.ID, err)
-		return domain.User{}, errors.New("unable to update user")
-	}
-	return user, nil
-}
-
-func (ur *userRepository) GetAllUsers() ([]domain.User, error) {
-	var users []domain.User
-	if err := ur.db.Find(&users).Error; err != nil {
-		log.Printf("[ERROR] Error fetching users: %v", err)
+// GetAllUsers retrieves all users with pagination, excluding soft-deleted users.
+func (ur *userRepository) GetAllUsers(ctx context.Context, limit, offset int) ([]domain.User, error) {
+	dbUsers, err := ur.queries.GetAllUsersPaginated(ctx, db.GetAllUsersPaginatedParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
 		return nil, err
+	}
+	var users []domain.User
+	for _, dbUser := range dbUsers {
+		users = append(users, mapDBUserToDomainUser(dbUser))
 	}
 	return users, nil
 }
 
-func (ur *userRepository) CountUsers() (int, error) {
-	var count int64
-	if err := ur.db.Model(&domain.User{}).Count(&count).Error; err != nil {
-		log.Printf("[ERROR] Error while counting users: %v", err)
-		return 0, err
+// CheckUserExistsByMobile checks if a user exists with the given mobile number.
+func (ur *userRepository) CheckUserExistsByMobile(ctx context.Context, mobile string) (bool, error) {
+	_, err := ur.queries.CheckUserExistsByMobile(ctx, mobile)
+	if errors.Is(err, db.ErrNoRows) {
+		return false, nil
 	}
-	return int(count), nil
+	return err == nil, err
+}
+
+// CheckUserExistsByEmail checks if a user exists with the given email address.
+func (ur *userRepository) CheckUserExistsByEmail(ctx context.Context, email string) (bool, error) {
+	_, err := ur.queries.CheckUserExistsByEmail(ctx, email)
+	if errors.Is(err, db.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// UpdateUser updates an existing user in the database.
+func (ur *userRepository) UpdateUser(ctx context.Context, user domain.User) (domain.User, error) {
+
+	err := ur.queries.UpdateUser(ctx, db.UpdateUserParams{
+		ID:        user.ID,
+		UpdatedAt: user.UpdatedAt,
+		Role:      user.Role,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		Mobile:    user.Mobile,
+		Password:  user.Password,
+		Code:      user.Code,
+		Verified:  user.Verified,
+		UserType:  user.UserType,
+		ExpiresAt: user.ExpiresAt,
+	})
+	if err != nil {
+		return domain.User{}, err
+	}
+	return mapDBUserToDomainUser(dbUser), nil
+}
+
+// SoftDeleteUser soft deletes a user by setting the deleted_at timestamp.
+func (ur *userRepository) SoftDeleteUser(ctx context.Context, id uuid.UUID) error {
+	return ur.queries.SoftDeleteUser(ctx, id)
+}
+
+// HardDeleteUser permanently deletes a user from the database.
+func (ur *userRepository) HardDeleteUser(ctx context.Context, id uuid.UUID) error {
+	return ur.queries.HardDeleteUser(ctx, id)
+}
+
+func mapDBUserToDomainUser(dbUser db.User) domain.User {
+	return domain.User{
+		ID:        dbUser.ID,
+		CreatedAt: dbUser.CreatedAt.Time,            // Convert pgtype.Timestamp to time.Time
+		UpdatedAt: dbUser.UpdatedAt.Time,            // Convert pgtype.Timestamp to time.Time
+		Role:      toString(dbUser.Role),            // Convert pgtype.Text to string
+		FirstName: toString(dbUser.FirstName),       // Convert pgtype.Text to string
+		LastName:  toString(dbUser.LastName),        // Convert pgtype.Text to string
+		Email:     toString(dbUser.Email),           // Convert pgtype.Text to string
+		Mobile:    toString(dbUser.Mobile),          // Convert pgtype.Text to string
+		Password:  toString(dbUser.Password),        // Convert pgtype.Text to string
+		Code:      toInt(dbUser.Code),               // Convert pgtype.Int4 to int
+		Verified:  toBool(dbUser.Verified),          // Convert pgtype.Bool to bool
+		UserType:  toString(dbUser.UserType),        // Convert pgtype.Text to string
+		ExpiresAt: extractTimePtr(dbUser.ExpiresAt), // Convert pgtype.Timestamp to *time.Time
+	}
+}
+
+// extractTimePtr handles nullable pgtype.Timestamp.
+func extractTimePtr(ts pgtype.Timestamp) *time.Time {
+	if ts.Status == pgtype.Null {
+		return nil
+	}
+	return &ts.Time
+}
+
+// toPgTimestamp converts time.Time to pgtype.Timestamp.
+func toPgTimestamp(t time.Time) pgtype.Timestamp {
+	var ts pgtype.Timestamp
+	ts.Set(t)
+	return ts
+}
+
+func toBool(b pgtype.Bool) bool {
+	if b.Status == pgtype.Null {
+		return false
+	}
+	return b.Bool
+}
+
+// toString converts pgtype.Text to string.
+func toString(pgText pgtype.Text) string {
+	if pgText.Status == pgtype.Null {
+		return ""
+	}
+	return pgText.String
+}
+
+// toInt converts pgtype.Int4 to int.
+func toInt(pgInt pgtype.Int4) int {
+	if pgInt.Status == pgtype.Null {
+		return 0
+	}
+	return int(pgInt.Int32)
 }

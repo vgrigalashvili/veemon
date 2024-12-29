@@ -3,6 +3,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -51,7 +52,7 @@ func (us *UserService) AddUser(args domain.User) (string, error) {
 
 	log.Printf("[INFO] %v", user)
 	log.Printf("[DEBUG] User entity: %+v", user)
-	createdUser, err := us.UserRepo.AddUser(user)
+	createdUser, err := us.UserRepo.CreateUser(context.Background(), user)
 	if err != nil {
 		log.Printf("[ERROR - UserService] Failed to add user to the database: %v", err)
 		return "", err
