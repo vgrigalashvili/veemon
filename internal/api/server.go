@@ -17,18 +17,19 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
 	"github.com/vgrigalashvili/veemon/internal/api/rest"
 	"github.com/vgrigalashvili/veemon/internal/api/rest/handler"
 	"github.com/vgrigalashvili/veemon/internal/config"
-	"github.com/vgrigalashvili/veemon/internal/domain"
 	"github.com/vgrigalashvili/veemon/internal/mail"
 	"github.com/vgrigalashvili/veemon/internal/repository"
 	"github.com/vgrigalashvili/veemon/internal/service"
 	"github.com/vgrigalashvili/veemon/internal/token"
 	"github.com/vgrigalashvili/veemon/internal/worker"
 	"golang.org/x/sync/errgroup"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	db "github.com/vgrigalashvili/veemon/internal/db/sqlc"
 )
 
 // StartServer initializes and starts the API server.
@@ -60,13 +61,17 @@ func StartServer(ac config.AppConfig) {
 		}),
 	)
 
-	// Set up the database connection.
-	db, err := gorm.Open(postgres.Open(ac.DatabaseURI), &gorm.Config{})
+	// Set up context and error group for managing goroutines.
+	ctx, cancel := context.WithCancel(context.Background())
+	waitGroup, ctx := errgroup.WithContext(ctx)
+
+	conn, err := pgx.Connect(ctx, ac.DatabaseURI)
 	if err != nil {
-		log.Fatalf("[ERROR] Database connection error: %v", err)
+		log.Fatalf("[ERROR] failed to connect to the database: %v", err)
 	}
-	setupDatabaseConnection(db)
-	runMigrations(db)
+	defer conn.Close(ctx)
+
+	queries := db.New(conn)
 
 	// Initialize the token maker.
 	tokenMaker, err := token.NewPasetoMaker(ac.TokenSymmetricKey)
@@ -75,7 +80,7 @@ func StartServer(ac config.AppConfig) {
 	}
 
 	// Initialize services and handlers.
-	userRepository := repository.NewUserRepository(db)
+	userRepository := repository.NewUserRepository(queries)
 	userService := service.NewUserService(userRepository)
 	authService := service.NewAuthService(tokenMaker, userService)
 
@@ -84,13 +89,9 @@ func StartServer(ac config.AppConfig) {
 		Token:       tokenMaker,
 		AuthService: authService,
 		UserService: userService,
-		DB:          db,
+		// DB:          db,
 	}
 	initializeHandler(restHandler)
-
-	// Set up context and error group for managing goroutines.
-	ctx, cancel := context.WithCancel(context.Background())
-	waitGroup, ctx := errgroup.WithContext(ctx)
 
 	// Initialize the mailer.
 	mailer := mail.NewSMTPMailer(ac.MailerHost, ac.MailerPort, ac.MailerUserName, ac.MailerPassword, "veemon")
@@ -98,7 +99,7 @@ func StartServer(ac config.AppConfig) {
 	// Set up the task processor.
 	redisAddr := ac.RedisAddress
 	log.Printf("[DEBUG] redis address: %s", redisAddr)
-	runTaskProcessor(ctx, waitGroup, redisAddr, db, mailer)
+	runTaskProcessor(ctx, waitGroup, redisAddr, db.Querier, mailer)
 
 	// Start the API server.
 	waitGroup.Go(func() error {
@@ -111,24 +112,6 @@ func StartServer(ac config.AppConfig) {
 
 	// Handle graceful shutdown.
 	handleGracefulShutdown(api, cancel, waitGroup)
-}
-
-// setupDatabaseConnection configures the database connection pool settings.
-func setupDatabaseConnection(db *gorm.DB) {
-	pgDB, err := db.DB()
-	if err != nil {
-		log.Fatalf("[ERROR] failed to get raw database connection: %v", err)
-	}
-	pgDB.SetMaxIdleConns(10)
-	pgDB.SetMaxOpenConns(100)
-	pgDB.SetConnMaxLifetime(time.Hour)
-}
-
-// runMigrations runs the database migrations to set up necessary schemas.
-func runMigrations(db *gorm.DB) {
-	if err := db.AutoMigrate(&domain.User{}, &domain.VerifyEmail{}); err != nil {
-		log.Fatalf("[ERROR] auto migrate failed: %v", err)
-	}
 }
 
 // initializeHandler sets up the REST API handlers for the application.

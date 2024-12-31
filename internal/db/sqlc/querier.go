@@ -12,27 +12,15 @@ import (
 )
 
 type Querier interface {
-	// Mobile phone number
-	// Check if a user exists by email
-	CheckUserExistsByEmail(ctx context.Context, email pgtype.Text) (uuid.UUID, error)
-	// Check if a user exists by mobile
-	CheckUserExistsByMobile(ctx context.Context, mobile string) (uuid.UUID, error)
-	// Create a new user
-	CreateUser(ctx context.Context, arg CreateUserParams) error
-	// UUID of the user
-	// Get all users
-	GetAllUsers(ctx context.Context) ([]GetAllUsersRow, error)
-	// Get a user by ID
-	GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error)
-	// UUID of the user
-	// Permanently delete a user by ID
-	HardDeleteUser(ctx context.Context, id uuid.UUID) error
-	// UUID of the user
-	// Delete a user by ID (Soft Delete)
-	SoftDeleteUser(ctx context.Context, arg SoftDeleteUserParams) error
-	// Email address
-	// Update a user by ID
+	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	GetUserByEmail(ctx context.Context, email pgtype.Text) (User, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	GetUserByMobile(ctx context.Context, mobile string) (User, error)
+	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
+	ResetUserCode(ctx context.Context, arg ResetUserCodeParams) error
+	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
 	UpdateUser(ctx context.Context, arg UpdateUserParams) error
+	VerifyUser(ctx context.Context, id uuid.UUID) error
 }
 
 var _ Querier = (*Queries)(nil)

@@ -10,18 +10,18 @@ import (
 )
 
 type User struct {
-	ID        uuid.UUID        `json:"id"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
-	UpdatedAt pgtype.Timestamp `json:"updated_at"`
-	DeletedAt pgtype.Timestamp `json:"deleted_at"`
-	Role      string           `json:"role"`
-	FirstName pgtype.Text      `json:"first_name"`
-	LastName  pgtype.Text      `json:"last_name"`
-	Email     pgtype.Text      `json:"email"`
-	Mobile    string           `json:"mobile"`
-	Password  string           `json:"password"`
-	Code      pgtype.Int4      `json:"code"`
-	Verified  bool             `json:"verified"`
-	UserType  string           `json:"user_type"`
-	ExpiresAt pgtype.Timestamp `json:"expires_at"`
+	ID           uuid.UUID        `json:"id"`
+	CreatedAt    pgtype.Timestamp `json:"created_at"`
+	UpdatedAt    pgtype.Timestamp `json:"updated_at"`
+	DeletedAt    pgtype.Timestamp `json:"deleted_at"`
+	Role         string           `json:"role"`
+	FirstName    pgtype.Text      `json:"first_name"`
+	LastName     pgtype.Text      `json:"last_name"`
+	Email        pgtype.Text      `json:"email"`
+	Mobile       string           `json:"mobile"`
+	PasswordHash string           `json:"password_hash"`
+	Code         pgtype.Int4      `json:"code"`
+	Verified     bool             `json:"verified"`
+	UserType     string           `json:"user_type"`
+	ExpiresAt    pgtype.Timestamp `json:"expires_at"`
 }

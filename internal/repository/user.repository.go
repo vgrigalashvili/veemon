@@ -3,11 +3,10 @@ package repository
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx"
-	"github.com/jackc/pgx/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
+
 	db "github.com/vgrigalashvili/veemon/internal/db/sqlc"
 	"github.com/vgrigalashvili/veemon/internal/domain"
 )
@@ -26,34 +25,30 @@ type UserRepository interface {
 
 // userRepository implements the UserRepository interface using sqlc.
 type userRepository struct {
-	connPool *pgx.ConnPool
-	queries  *db.Queries
+	queries *db.Queries
 }
 
 // NewUserRepository creates a new instance of userRepository.
-func NewUserRepository(connPool *pgx.ConnPool, queries *db.Queries) UserRepository {
+func NewUserRepository(db *db.Queries) UserRepository {
 	return &userRepository{
-		connPool: connPool,
-		queries:  queries,
+		queries: db,
 	}
 }
 
 // CreateUser inserts a new user into the database.
 func (ur *userRepository) CreateUser(ctx context.Context, user domain.User) (domain.User, error) {
-	err := ur.queries.CreateUser(ctx, db.CreateUserParams{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Role:      user.Role,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		Email:     user.Email,
-		Mobile:    user.Mobile,
-		Password:  user.Password,
-		Code:      user.Code,
-		Verified:  user.Verified,
-		UserType:  user.UserType,
-		ExpiresAt: user.ExpiresAt,
+	dbUser, err := ur.queries.CreateUser(ctx, db.CreateUserParams{
+		ID:           user.ID,
+		Role:         user.Role,
+		FirstName:    pgtype.Text{String: user.FirstName},
+		LastName:     pgtype.Text{String: user.LastName},
+		Email:        pgtype.Text{String: user.Email},
+		Mobile:       user.Mobile,
+		PasswordHash: user.Password,
+		Code:         pgtype.Int4{Int32: int32(user.Code)},
+		Verified:     user.Verified,
+		UserType:     user.UserType,
+		ExpiresAt:    pgtype.Timestamp{Time: *user.ExpiresAt},
 	})
 	if err != nil {
 		return domain.User{}, err
@@ -75,7 +70,7 @@ func (ur *userRepository) GetUserByID(ctx context.Context, id uuid.UUID) (domain
 
 // GetAllUsers retrieves all users with pagination, excluding soft-deleted users.
 func (ur *userRepository) GetAllUsers(ctx context.Context, limit, offset int) ([]domain.User, error) {
-	dbUsers, err := ur.queries.GetAllUsersPaginated(ctx, db.GetAllUsersPaginatedParams{
+	dbUsers, err := ur.queries.GetAllUsersPaginated(ctx, sqlc.GetAllUsersPaginatedParams{
 		Limit:  int32(limit),
 		Offset: int32(offset),
 	})
@@ -145,53 +140,15 @@ func mapDBUserToDomainUser(dbUser db.User) domain.User {
 		ID:        dbUser.ID,
 		CreatedAt: dbUser.CreatedAt.Time,            // Convert pgtype.Timestamp to time.Time
 		UpdatedAt: dbUser.UpdatedAt.Time,            // Convert pgtype.Timestamp to time.Time
-		Role:      toString(dbUser.Role),            // Convert pgtype.Text to string
-		FirstName: toString(dbUser.FirstName),       // Convert pgtype.Text to string
-		LastName:  toString(dbUser.LastName),        // Convert pgtype.Text to string
-		Email:     toString(dbUser.Email),           // Convert pgtype.Text to string
-		Mobile:    toString(dbUser.Mobile),          // Convert pgtype.Text to string
-		Password:  toString(dbUser.Password),        // Convert pgtype.Text to string
-		Code:      toInt(dbUser.Code),               // Convert pgtype.Int4 to int
-		Verified:  toBool(dbUser.Verified),          // Convert pgtype.Bool to bool
-		UserType:  toString(dbUser.UserType),        // Convert pgtype.Text to string
+		Role:      dbUser.Role,                      // Convert pgtype.Text to string
+		FirstName: dbUser.FirstName,                 // Convert pgtype.Text to string
+		LastName:  dbUser.LastName,                  // Convert pgtype.Text to string
+		Email:     dbUser.Email,                     // Convert pgtype.Text to string
+		Mobile:    dbUser.Mobile,                    // Convert pgtype.Text to string
+		Password:  dbUser.Password,                  // Convert pgtype.Text to string
+		Code:      dbUser.Code,                      // Convert pgtype.Int4 to int
+		Verified:  dbUser.Verified,                  // Convert pgtype.Bool to bool
+		UserType:  dbUser.UserType,                  // Convert pgtype.Text to string
 		ExpiresAt: extractTimePtr(dbUser.ExpiresAt), // Convert pgtype.Timestamp to *time.Time
 	}
-}
-
-// extractTimePtr handles nullable pgtype.Timestamp.
-func extractTimePtr(ts pgtype.Timestamp) *time.Time {
-	if ts.Status == pgtype.Null {
-		return nil
-	}
-	return &ts.Time
-}
-
-// toPgTimestamp converts time.Time to pgtype.Timestamp.
-func toPgTimestamp(t time.Time) pgtype.Timestamp {
-	var ts pgtype.Timestamp
-	ts.Set(t)
-	return ts
-}
-
-func toBool(b pgtype.Bool) bool {
-	if b.Status == pgtype.Null {
-		return false
-	}
-	return b.Bool
-}
-
-// toString converts pgtype.Text to string.
-func toString(pgText pgtype.Text) string {
-	if pgText.Status == pgtype.Null {
-		return ""
-	}
-	return pgText.String
-}
-
-// toInt converts pgtype.Int4 to int.
-func toInt(pgInt pgtype.Int4) int {
-	if pgInt.Status == pgtype.Null {
-		return 0
-	}
-	return int(pgInt.Int32)
 }
