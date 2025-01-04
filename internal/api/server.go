@@ -27,7 +27,6 @@ import (
 	"github.com/vgrigalashvili/veemon/internal/token"
 	"github.com/vgrigalashvili/veemon/internal/worker"
 	"golang.org/x/sync/errgroup"
-	"gorm.io/gorm"
 
 	db "github.com/vgrigalashvili/veemon/internal/db/sqlc"
 )
@@ -89,7 +88,6 @@ func StartServer(ac config.AppConfig) {
 		Token:       tokenMaker,
 		AuthService: authService,
 		UserService: userService,
-		// DB:          db,
 	}
 	initializeHandler(restHandler)
 
@@ -99,7 +97,7 @@ func StartServer(ac config.AppConfig) {
 	// Set up the task processor.
 	redisAddr := ac.RedisAddress
 	log.Printf("[DEBUG] redis address: %s", redisAddr)
-	runTaskProcessor(ctx, waitGroup, redisAddr, db.Querier, mailer)
+	runTaskProcessor(ctx, waitGroup, redisAddr, queries, mailer)
 
 	// Start the API server.
 	waitGroup.Go(func() error {
@@ -121,7 +119,7 @@ func initializeHandler(rh *rest.RestHandler) {
 }
 
 // runTaskProcessor starts the task processor for handling background tasks.
-func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr string, db *gorm.DB, mailer mail.EmailSender) {
+func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr string, db *db.Queries, mailer mail.EmailSender) {
 	redisOpt := asynq.RedisClientOpt{
 		Addr: redisAddr,
 	}

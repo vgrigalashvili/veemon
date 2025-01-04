@@ -13,7 +13,6 @@ import (
 	"github.com/vgrigalashvili/veemon/internal/api/rest/middleware"
 	"github.com/vgrigalashvili/veemon/internal/domain"
 	"github.com/vgrigalashvili/veemon/internal/dto"
-	"github.com/vgrigalashvili/veemon/internal/repository"
 	"github.com/vgrigalashvili/veemon/internal/service"
 )
 
@@ -39,12 +38,12 @@ func InitializeUserHandler(rh *rest.RestHandler) {
 	api := rh.API
 	errorHandler := &rest.DefaultAPIErrorHandler{}
 
-	userService := &service.UserService{
-		UserRepo: repository.NewUserRepository(rh.DB),
-	}
+	// userService := &service.UserService{
+	// 	UserRepo: repository.NewUserRepository(rh),
+	// }
 
 	userHandler := &UserHandler{
-		userService: userService,
+		// userService: userService,
 		handleError: errorHandler.HandleError,
 	}
 
