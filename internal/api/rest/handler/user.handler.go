@@ -13,6 +13,7 @@ import (
 	"github.com/vgrigalashvili/veemon/internal/api/rest/middleware"
 	"github.com/vgrigalashvili/veemon/internal/domain"
 	"github.com/vgrigalashvili/veemon/internal/dto"
+	"github.com/vgrigalashvili/veemon/internal/repository"
 	"github.com/vgrigalashvili/veemon/internal/service"
 )
 
@@ -37,39 +38,29 @@ func InitializeUserHandler(rh *rest.RestHandler) {
 
 	api := rh.API
 	errorHandler := &rest.DefaultAPIErrorHandler{}
-
-	// userService := &service.UserService{
-	// 	UserRepo: repository.NewUserRepository(rh),
-	// }
+	userRepository := repository.NewUserRepository(rh.DB)
+	userService := service.NewUserService(userRepository)
 
 	userHandler := &UserHandler{
-		// userService: userService,
+		userService: userService,
 		handleError: errorHandler.HandleError,
 	}
 
 	authMiddleware := middleware.AuthMiddleware(rh.Token)
+
 	// protected
-	api.Post("/user/add-user", userHandler.addUser)
-	api.Get("/user/get-by-mobile", authMiddleware, userHandler.getUserByMobile)
-	api.Get("/user/get-by-id", authMiddleware, userHandler.getUserByID)
-	api.Get("/user/get-by-email", authMiddleware, userHandler.getUserByEmail)
-	api.Patch("/user/update-user", authMiddleware, userHandler.updateUser)
-	api.Get("/user/get-all-users", authMiddleware, userHandler.getAllUsers)
-	api.Get("/user/count", authMiddleware, userHandler.countUsers)
+	api.Post("/user/add", authMiddleware, userHandler.add)
+	api.Get("/user/get", authMiddleware, userHandler.get)
+	api.Patch("/user/update", authMiddleware, userHandler.update)
 }
 
-func (uh *UserHandler) addUser(ctx *fiber.Ctx) error {
+func (uh *UserHandler) add(ctx *fiber.Ctx) error {
 
 	// Parse the request body into the DTO.
 	var userData dto.CreateUser
 	if err := ctx.BodyParser(&userData); err != nil {
 		log.Printf("[ERROR] invalid request body: %v", err)
 		return uh.handleError(ctx, rest.ErrInvalidRequestJSON)
-		// return uh.handleError(ctx, err)
-		// return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
-		// 	"success": false,
-		// 	"data":    rest.ErrInvalidRequestJSON,
-		// })
 	}
 
 	// Validate the input data.
@@ -121,27 +112,39 @@ func (uh *UserHandler) addUser(ctx *fiber.Ctx) error {
 	})
 }
 
-func (uh *UserHandler) getUserByMobile(ctx *fiber.Ctx) error {
-	mobileParam := ctx.Query("mobile")
-	log.Printf("[DEBUG] received user mobile parameter: %s", mobileParam)
-
-	user, err := uh.userService.GetUserByMobile(mobileParam)
-	if err != nil {
-		log.Printf("[ERROR] user not found for mobile: %s: %v", mobileParam, err)
-		return ctx.Status(http.StatusNotFound).JSON(&fiber.Map{
+func (uh *UserHandler) get(ctx *fiber.Ctx) error {
+	if uh.userService == nil {
+		log.Printf("[ERROR] user service not initialized")
+		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
 			"success": false,
-			"data":    errUserNotFound,
+			"data":    "internal server error: user service not initialized",
 		})
 	}
-
-	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
-		"success": true,
-		"data":    user,
-	})
-}
-func (uh *UserHandler) getUserByID(ctx *fiber.Ctx) error {
 	idParam := ctx.Query("id")
-	log.Printf("[DEBUG] received user ID parameter: %s", idParam)
+	if idParam == "" {
+		log.Printf("[INFO] no user ID provided in the request query parameter")
+		mobileParam := ctx.Query("mobile")
+		if mobileParam == "" {
+			log.Printf("[INFO] no user mobile provided in the request query parameter")
+			return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+				"success": false,
+				"data":    rest.ErrInvalidQueryParam,
+			})
+		}
+		user, err := uh.userService.GetUserByMobile(mobileParam)
+		if err != nil {
+			log.Printf("[ERROR] user not found for mobile: %s: %v", mobileParam, err)
+			return ctx.Status(http.StatusNotFound).JSON(&fiber.Map{
+				"success": false,
+				"data":    errUserNotFound,
+			})
+		}
+		return ctx.Status(http.StatusOK).JSON(&fiber.Map{
+			"success": true,
+			"data":    user,
+		})
+	}
+	// Parse the user ID from query parameters (or include it in the body, if preferred).
 	userID, err := uuid.Parse(idParam)
 	if err != nil {
 		log.Printf("[ERROR] invalid user ID format: %v", err)
@@ -150,8 +153,7 @@ func (uh *UserHandler) getUserByID(ctx *fiber.Ctx) error {
 			"data":    ErrInvalidUserIDFormat,
 		})
 	}
-
-	user, err := uh.userService.FindUserByID(userID)
+	user, err := uh.userService.GetUserByID(userID)
 	if err != nil {
 		log.Printf("[ERROR] user not found for ID %s: %v", userID, err)
 		return ctx.Status(http.StatusNotFound).JSON(&fiber.Map{
@@ -159,37 +161,13 @@ func (uh *UserHandler) getUserByID(ctx *fiber.Ctx) error {
 			"data":    errUserNotFound,
 		})
 	}
-
-	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
-		"success": true,
-		"data":    user,
-	})
-}
-func (uh *UserHandler) getUserByEmail(ctx *fiber.Ctx) error {
-	email := ctx.Query("email")
-	if email == "" {
-		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
-			"success": false,
-			"data":    rest.ErrEmailQueryParamRequired,
-		})
-	}
-
-	user, err := uh.userService.FindUserByEmail(email)
-	if err != nil {
-		log.Printf("[ERROR] user not found for email %s: %v", email, err)
-		return ctx.Status(http.StatusNotFound).JSON(&fiber.Map{
-			"success": false,
-			"data":    errUserNotFound,
-		})
-	}
-
 	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
 		"success": true,
 		"data":    user,
 	})
 }
 
-func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
+func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 	// Extract userID from the token via middleware
 	requesterID := ctx.Locals("userID")
 	if requesterID == nil {
@@ -289,22 +267,6 @@ func (uh *UserHandler) getAllUsers(ctx *fiber.Ctx) error {
 	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
 		"success": true,
 		"data":    users,
-	})
-}
-
-func (uh *UserHandler) countUsers(ctx *fiber.Ctx) error {
-	// count, err := uh.userService.CountUsers()
-	// if err != nil {
-	// 	log.Printf("[ERROR] error while counting users: %v", err)
-	// 	return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
-	// 		"success": false,
-	// 		"data":    "error while counting users.",
-	// 	})
-	// }
-
-	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
-		"success": true,
-		"data":    "empty",
 	})
 }
 

@@ -55,7 +55,7 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 	}
 
 	// Check if the user already exists with the given mobile number.
-	result, err := ah.authService.SignUp(request)
+	result, err := ah.authService.HandleSignUpProcesses(request)
 	if err != nil {
 		log.Printf("[ERROR] failed to sign up: %v", err)
 		if err.Error() == "user with this mobile already exists" {

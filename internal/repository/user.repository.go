@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,19 +28,27 @@ var (
 )
 
 // UserRepository defines the methods for interacting with the user data store.
-type UserRepository interface {
-	CreateUser(ctx context.Context, user domain.User) (domain.User, error)
-	GetUserByMobile(ctx context.Context, mobile string) (domain.User, error)
-	GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, error)
-	GetUserRole(ctx context.Context, id uuid.UUID) (string, error)
-	GetAllUsers(ctx context.Context, limit, offset int) ([]domain.User, error)
-	CheckUserExistsByMobile(ctx context.Context, mobile string) (bool, error)
-	CheckUserExistsByEmail(ctx context.Context, email string) (bool, error)
-	UpdateUser(ctx context.Context, user domain.User) (domain.User, error)
-	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
-	UserExpiresAt(ctx context.Context, id uuid.UUID, expiresAt time.Time) error
-	SetupUserRole(ctx context.Context, id uuid.UUID, role string) error
-}
+type (
+	UserRepository interface {
+		UserModifiers
+		UserGetters
+	}
+	UserModifiers interface {
+		CreateUser(ctx context.Context, user domain.User) (domain.User, error)
+		UpdateUser(ctx context.Context, user domain.User) (domain.User, error)
+		SoftDeleteUser(ctx context.Context, id uuid.UUID) error
+		UserExpiresAt(ctx context.Context, id uuid.UUID, expiresAt time.Time) error
+		SetupUserRole(ctx context.Context, id uuid.UUID, role string) error
+	}
+	UserGetters interface {
+		GetUserByMobile(ctx context.Context, mobile string) (domain.User, error)
+		GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, error)
+		GetUserRole(ctx context.Context, id uuid.UUID) (string, error)
+		GetAllUsers(ctx context.Context, limit, offset int) ([]domain.User, error)
+		CheckUserExistsByMobile(ctx context.Context, mobile string) bool
+		CheckUserExistsByEmail(ctx context.Context, email string) bool
+	}
+)
 
 // userRepository implements the UserRepository interface using sqlc.
 type userRepository struct {
@@ -47,10 +56,12 @@ type userRepository struct {
 }
 
 // NewUserRepository creates a new instance of userRepository.
-func NewUserRepository(db *db.Queries) UserRepository {
-	return &userRepository{
-		queries: db,
+func NewUserRepository(q *db.Queries) *userRepository {
+	log.Printf("[INFO] initializing *userRepository %v", q)
+	if q == nil {
+		log.Fatalf("[FATAL] queries cannot be nil")
 	}
+	return &userRepository{queries: q}
 }
 
 // CreateUser inserts a new user into the database.
@@ -115,21 +126,27 @@ func (ur *userRepository) GetUserByMobile(ctx context.Context, mobile string) (d
 }
 
 // CheckUserExistsByMobile checks if a user exists with the given mobile number.
-func (ur *userRepository) CheckUserExistsByMobile(ctx context.Context, mobile string) (bool, error) {
+// Returns true if the user exists, false otherwise.
+func (ur *userRepository) CheckUserExistsByMobile(ctx context.Context, mobile string) bool {
 	_, err := ur.queries.GetUserByMobile(ctx, mobile)
-	if errors.Is(err, db.ErrNoRows) {
-		return false, nil
+	if err != nil && errors.Is(err, db.ErrNoRows) {
+		return false
+	} else if err != nil {
+		log.Printf("[ERROR] something went wrong in *userRepository: CheckUserExistsByMobile %v", err)
 	}
-	return err == nil, err
+	return true
 }
 
 // CheckUserExistsByEmail checks if a user exists with the given email address.
-func (ur *userRepository) CheckUserExistsByEmail(ctx context.Context, email string) (bool, error) {
+// Returns true if the user exists, false otherwise.
+func (ur *userRepository) CheckUserExistsByEmail(ctx context.Context, email string) bool {
 	_, err := ur.queries.GetUserByEmail(ctx, pgtype.Text{String: email})
-	if errors.Is(err, db.ErrNoRows) {
-		return false, nil
+	if err != nil && errors.Is(err, db.ErrNoRows) {
+		return false
+	} else if err != nil {
+		log.Printf("[ERROR] something went wrong in *userRepository: CheckUserExistsByEmail %v", err)
 	}
-	return err == nil, err
+	return true
 }
 
 // UpdateUser updates an existing user in the database.

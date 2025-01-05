@@ -64,13 +64,16 @@ func StartServer(ac config.AppConfig) {
 	ctx, cancel := context.WithCancel(context.Background())
 	waitGroup, ctx := errgroup.WithContext(ctx)
 
+	// Connect to the database.
 	conn, err := pgx.Connect(ctx, ac.DatabaseURI)
 	if err != nil {
 		log.Fatalf("[ERROR] failed to connect to the database: %v", err)
 	}
+	log.Println("[INFO] database connection established successfully")
 	defer conn.Close(ctx)
 
 	queries := db.New(conn)
+	log.Printf("[DEBUG] Queries instance: %v", queries)
 
 	// Initialize the token maker.
 	tokenMaker, err := token.NewPasetoMaker(ac.TokenSymmetricKey)
