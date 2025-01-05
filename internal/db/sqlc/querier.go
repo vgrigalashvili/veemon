@@ -12,14 +12,17 @@ import (
 )
 
 type Querier interface {
-	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	AddUser(ctx context.Context, arg AddUserParams) (User, error)
 	GetUserByEmail(ctx context.Context, email pgtype.Text) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByMobile(ctx context.Context, mobile string) (User, error)
+	GetUserRole(ctx context.Context, id uuid.UUID) (string, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
-	ResetUserCode(ctx context.Context, arg ResetUserCodeParams) error
+	ResetUserPin(ctx context.Context, arg ResetUserPinParams) error
+	SetupUserRole(ctx context.Context, arg SetupUserRoleParams) error
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
 	UpdateUser(ctx context.Context, arg UpdateUserParams) error
+	UserExpiresAt(ctx context.Context, arg UserExpiresAtParams) error
 	VerifyUser(ctx context.Context, id uuid.UUID) error
 }
 

@@ -12,15 +12,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createUser = `-- name: CreateUser :one
+const addUser = `-- name: AddUser :one
 INSERT INTO users (
-    id, first_name, last_name, email, mobile, password_hash, role, user_type, code, verified, expires_at
+    id, first_name, last_name, email, mobile, password_hash, role, user_type, pin, verified, expires_at
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-) RETURNING id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, code, verified, user_type, expires_at
+) RETURNING id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, pin, verified, user_type, expires_at
 `
 
-type CreateUserParams struct {
+type AddUserParams struct {
 	ID           uuid.UUID        `json:"id"`
 	FirstName    pgtype.Text      `json:"first_name"`
 	LastName     pgtype.Text      `json:"last_name"`
@@ -29,13 +29,13 @@ type CreateUserParams struct {
 	PasswordHash string           `json:"password_hash"`
 	Role         string           `json:"role"`
 	UserType     string           `json:"user_type"`
-	Code         pgtype.Int4      `json:"code"`
+	Pin          pgtype.Int4      `json:"pin"`
 	Verified     bool             `json:"verified"`
 	ExpiresAt    pgtype.Timestamp `json:"expires_at"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser,
+func (q *Queries) AddUser(ctx context.Context, arg AddUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, addUser,
 		arg.ID,
 		arg.FirstName,
 		arg.LastName,
@@ -44,7 +44,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.PasswordHash,
 		arg.Role,
 		arg.UserType,
-		arg.Code,
+		arg.Pin,
 		arg.Verified,
 		arg.ExpiresAt,
 	)
@@ -60,7 +60,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Email,
 		&i.Mobile,
 		&i.PasswordHash,
-		&i.Code,
+		&i.Pin,
 		&i.Verified,
 		&i.UserType,
 		&i.ExpiresAt,
@@ -69,7 +69,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, code, verified, user_type, expires_at
+SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, pin, verified, user_type, expires_at
 FROM users
 WHERE email = $1 AND deleted_at IS NULL
 `
@@ -88,7 +88,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email pgtype.Text) (User, 
 		&i.Email,
 		&i.Mobile,
 		&i.PasswordHash,
-		&i.Code,
+		&i.Pin,
 		&i.Verified,
 		&i.UserType,
 		&i.ExpiresAt,
@@ -97,7 +97,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email pgtype.Text) (User, 
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, code, verified, user_type, expires_at
+SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, pin, verified, user_type, expires_at
 FROM users
 WHERE id = $1 AND deleted_at IS NULL
 `
@@ -116,7 +116,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Email,
 		&i.Mobile,
 		&i.PasswordHash,
-		&i.Code,
+		&i.Pin,
 		&i.Verified,
 		&i.UserType,
 		&i.ExpiresAt,
@@ -125,7 +125,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByMobile = `-- name: GetUserByMobile :one
-SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, code, verified, user_type, expires_at
+SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, pin, verified, user_type, expires_at
 FROM users
 WHERE mobile = $1 AND deleted_at IS NULL
 `
@@ -144,7 +144,7 @@ func (q *Queries) GetUserByMobile(ctx context.Context, mobile string) (User, err
 		&i.Email,
 		&i.Mobile,
 		&i.PasswordHash,
-		&i.Code,
+		&i.Pin,
 		&i.Verified,
 		&i.UserType,
 		&i.ExpiresAt,
@@ -152,8 +152,21 @@ func (q *Queries) GetUserByMobile(ctx context.Context, mobile string) (User, err
 	return i, err
 }
 
+const getUserRole = `-- name: GetUserRole :one
+SELECT role
+FROM users
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) GetUserRole(ctx context.Context, id uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getUserRole, id)
+	var role string
+	err := row.Scan(&role)
+	return role, err
+}
+
 const listUsers = `-- name: ListUsers :many
-SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, code, verified, user_type, expires_at
+SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, pin, verified, user_type, expires_at
 FROM users
 WHERE deleted_at IS NULL
 ORDER BY created_at DESC
@@ -185,7 +198,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.Email,
 			&i.Mobile,
 			&i.PasswordHash,
-			&i.Code,
+			&i.Pin,
 			&i.Verified,
 			&i.UserType,
 			&i.ExpiresAt,
@@ -200,19 +213,35 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 	return items, nil
 }
 
-const resetUserCode = `-- name: ResetUserCode :exec
+const resetUserPin = `-- name: ResetUserPin :exec
 UPDATE users
-SET code = $2, updated_at = now()
+SET pin = $2, updated_at = now()
 WHERE id = $1
 `
 
-type ResetUserCodeParams struct {
-	ID   uuid.UUID   `json:"id"`
-	Code pgtype.Int4 `json:"code"`
+type ResetUserPinParams struct {
+	ID  uuid.UUID   `json:"id"`
+	Pin pgtype.Int4 `json:"pin"`
 }
 
-func (q *Queries) ResetUserCode(ctx context.Context, arg ResetUserCodeParams) error {
-	_, err := q.db.Exec(ctx, resetUserCode, arg.ID, arg.Code)
+func (q *Queries) ResetUserPin(ctx context.Context, arg ResetUserPinParams) error {
+	_, err := q.db.Exec(ctx, resetUserPin, arg.ID, arg.Pin)
+	return err
+}
+
+const setupUserRole = `-- name: SetupUserRole :exec
+UPDATE users
+SET role = $2, updated_at = now()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+type SetupUserRoleParams struct {
+	ID   uuid.UUID `json:"id"`
+	Role string    `json:"role"`
+}
+
+func (q *Queries) SetupUserRole(ctx context.Context, arg SetupUserRoleParams) error {
+	_, err := q.db.Exec(ctx, setupUserRole, arg.ID, arg.Role)
 	return err
 }
 
@@ -237,7 +266,7 @@ SET
     password_hash = COALESCE($6, password_hash),
     role = COALESCE($7, role),
     user_type = COALESCE($8, user_type),
-    code = COALESCE($9, code),
+    pin = COALESCE($9, pin),
     verified = COALESCE($10, verified),
     updated_at = now(),
     expires_at = COALESCE($11, expires_at)
@@ -253,7 +282,7 @@ type UpdateUserParams struct {
 	PasswordHash string           `json:"password_hash"`
 	Role         string           `json:"role"`
 	UserType     string           `json:"user_type"`
-	Code         pgtype.Int4      `json:"code"`
+	Pin          pgtype.Int4      `json:"pin"`
 	Verified     bool             `json:"verified"`
 	ExpiresAt    pgtype.Timestamp `json:"expires_at"`
 }
@@ -268,10 +297,26 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 		arg.PasswordHash,
 		arg.Role,
 		arg.UserType,
-		arg.Code,
+		arg.Pin,
 		arg.Verified,
 		arg.ExpiresAt,
 	)
+	return err
+}
+
+const userExpiresAt = `-- name: UserExpiresAt :exec
+UPDATE users
+SET expires_at = $2, updated_at = now()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+type UserExpiresAtParams struct {
+	ID        uuid.UUID        `json:"id"`
+	ExpiresAt pgtype.Timestamp `json:"expires_at"`
+}
+
+func (q *Queries) UserExpiresAt(ctx context.Context, arg UserExpiresAtParams) error {
+	_, err := q.db.Exec(ctx, userExpiresAt, arg.ID, arg.ExpiresAt)
 	return err
 }
 

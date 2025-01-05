@@ -48,6 +48,7 @@ func (us *UserService) AddUser(args domain.User) (string, error) {
 
 	user.ID = uuid.New()
 	user.Password = hashedPassword
+	user.Pin = 123456
 	user.ExpiresAt = &expiry
 
 	log.Printf("[INFO] %v", user)
@@ -64,7 +65,7 @@ func (us *UserService) AddUser(args domain.User) (string, error) {
 // FindUserByID retrieves a user by their unique ID.
 // Returns the user or an error if the user could not be found or if an error occurs.
 func (us *UserService) FindUserByID(userID uuid.UUID) (domain.User, error) {
-	user, err := us.UserRepo.FindUserByID(userID)
+	user, err := us.UserRepo.GetUserByID(context.Background(), userID)
 	if err != nil {
 		log.Printf("[ERROR] Error finding user by ID %s: %v", userID, err)
 		return domain.User{}, fmt.Errorf("could not find user by ID: %w", err)
@@ -74,32 +75,32 @@ func (us *UserService) FindUserByID(userID uuid.UUID) (domain.User, error) {
 
 // FindUserByMobile retrieves a user by their mobile number.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (us *UserService) FindUserByMobile(mobile string) (domain.User, error) {
+func (us *UserService) CheckUserByMobile(mobile string) (bool, error) {
 	log.Printf("[INFO] userRepo : %v", us.UserRepo)
 	if us.UserRepo == nil {
 		log.Printf("[ERROR] UserRepo is not initialized")
-		return domain.User{}, fmt.Errorf("UserRepo is not initialized")
+		return false, fmt.Errorf("UserRepo is not initialized")
 	}
-	user, err := us.UserRepo.FindUserByMobile(mobile)
+	userExists, err := us.UserRepo.CheckUserExistsByMobile(context.Background(), mobile)
 	if err != nil {
-		if errors.Is(err, repository.ErrRecordNotFound) {
-			return domain.User{}, nil // No user found, not an error
+		if errors.Is(err, repository.ErrNoRows) {
+			return false, ErrUserNotFound // No user found, not an error
 		}
 		log.Printf("[ERROR] Error finding user by mobile: %v", err)
-		return domain.User{}, err // Actual error occurred
+		return false, nil // Actual error occurred
 	}
-	return user, nil
+	return userExists, nil
 }
 
 // FindUserByEmail retrieves a user by their email address.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (us *UserService) FindUserByEmail(email string) (domain.User, error) {
-	user, err := us.UserRepo.FindUserByEmail(email)
+func (us *UserService) FindUserByEmail(email string) (bool, error) {
+	userExists, err := us.UserRepo.CheckUserExistsByEmail(context.Background(), email)
 	if err != nil {
 		log.Printf("[ERROR] Error finding user by email %s: %v", email, err)
-		return domain.User{}, fmt.Errorf("could not find user by email: %w", err)
+		return false, fmt.Errorf("could not find user by email: %w", err)
 	}
-	return user, nil
+	return userExists, nil
 }
 
 // UpdateUser updates the details of an existing user based on the provided arguments.
@@ -116,7 +117,7 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 		return domain.User{}, fmt.Errorf("nothing to update")
 	}
 	// Fetch the existing user from the database.
-	user, err := us.UserRepo.FindUserByID(userID)
+	user, err := us.UserRepo.GetUserByID(context.Background(), userID)
 	if err != nil {
 		log.Printf("[ERROR] Error finding user by ID %s: %v", userID, err)
 		return domain.User{}, fmt.Errorf("could not find user by ID: %w", err)
@@ -152,7 +153,7 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 	// }
 
 	// Save the updated user to the database.
-	updatedUser, err := us.UserRepo.UpdateUser(user)
+	updatedUser, err := us.UserRepo.UpdateUser(context.Background(), user)
 	if err != nil {
 		log.Printf("[ERROR] failed to update user in the database: %v", err)
 		return domain.User{}, fmt.Errorf("failed to update user: %w", err)
@@ -162,24 +163,24 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 	return updatedUser, nil
 }
 
-// CountUsers counts the total number of users in the database.
-// Returns the count or an error if the operation fails.
-func (us *UserService) CountUsers() (int, error) {
-	count, err := us.UserRepo.CountUsers()
-	if err != nil {
-		log.Printf("[ERROR] Error counting users: %v", err)
-		return 0, fmt.Errorf("could not count users: %w", err)
-	}
-	return count, nil
-}
-
 // GetAllUsers retrieves all user records from the database.
 // Returns a slice of users or an error if the operation fails.
-func (us *UserService) GetAllUsers() ([]domain.User, error) {
-	users, err := us.UserRepo.GetAllUsers()
+func (us *UserService) GetAllUsers(limit, offset int) ([]domain.User, error) {
+	users, err := us.UserRepo.GetAllUsers(context.Background(), limit, offset)
 	if err != nil {
 		log.Printf("[ERROR] Error getting all users: %v", err)
 		return nil, fmt.Errorf("could not get all users: %w", err)
 	}
 	return users, nil
+}
+
+// GetUserByMobile retrieves a user by their mobile number.
+// Returns the user or an error if the user could not be found or if an error occurs.
+func (us *UserService) GetUserByMobile(mobile string) (domain.User, error) {
+	user, err := us.UserRepo.GetUserByMobile(context.Background(), mobile)
+	if err != nil {
+		log.Printf("[ERROR] Error finding user by mobile %s: %v", mobile, err)
+		return domain.User{}, fmt.Errorf("could not find user by mobile: %w", err)
+	}
+	return user, nil
 }

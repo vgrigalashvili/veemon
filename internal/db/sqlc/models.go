@@ -20,7 +20,7 @@ type User struct {
 	Email        pgtype.Text      `json:"email"`
 	Mobile       string           `json:"mobile"`
 	PasswordHash string           `json:"password_hash"`
-	Code         pgtype.Int4      `json:"code"`
+	Pin          pgtype.Int4      `json:"pin"`
 	Verified     bool             `json:"verified"`
 	UserType     string           `json:"user_type"`
 	ExpiresAt    pgtype.Timestamp `json:"expires_at"`

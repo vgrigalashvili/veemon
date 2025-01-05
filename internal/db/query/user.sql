@@ -1,6 +1,6 @@
--- name: CreateUser :one
+-- name: AddUser :one
 INSERT INTO users (
-    id, first_name, last_name, email, mobile, password_hash, role, user_type, code, verified, expires_at
+    id, first_name, last_name, email, mobile, password_hash, role, user_type, pin, verified, expires_at
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 ) RETURNING *;
@@ -30,7 +30,7 @@ SET
     password_hash = COALESCE($6, password_hash),
     role = COALESCE($7, role),
     user_type = COALESCE($8, user_type),
-    code = COALESCE($9, code),
+    pin = COALESCE($9, pin),
     verified = COALESCE($10, verified),
     updated_at = now(),
     expires_at = COALESCE($11, expires_at)
@@ -53,7 +53,22 @@ UPDATE users
 SET verified = true, updated_at = now()
 WHERE id = $1;
 
--- name: ResetUserCode :exec
+-- name: ResetUserPin :exec
 UPDATE users
-SET code = $2, updated_at = now()
+SET pin = $2, updated_at = now()
 WHERE id = $1;
+
+-- name: UserExpiresAt :exec
+UPDATE users
+SET expires_at = $2, updated_at = now()
+WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: GetUserRole :one
+SELECT role
+FROM users
+WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: SetupUserRole :exec
+UPDATE users
+SET role = $2, updated_at = now()
+WHERE id = $1 AND deleted_at IS NULL;

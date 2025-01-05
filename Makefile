@@ -1,4 +1,4 @@
-DEV_DB_URI = postgres://postgres:1234@localhost:5432/dev-db
+DEV_DB_URI = postgres://postgres:1234@localhost:5432/dev-db?sslmode=disable
 
 run:
 	nodemon --watch './**/*.go' --signal SIGTERM --exec APP_ENV=dev 'go' run main.go
@@ -10,7 +10,7 @@ dev-db-rm:
 	# docker compose rm dev-db -s -f -v
 
 
-db-migrate-up:
-	migrate -path db/migration -database "$(DEV_DB_URI)" -verbose up
+dev-db-migrate-up:
+	migrate -path ./internal/db/migration -database "$(DEV_DB_URI)" -verbose up
 
 .PHONY: run dev-db-up dev-db-rm db-migrate-up

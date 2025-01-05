@@ -125,7 +125,7 @@ func (uh *UserHandler) getUserByMobile(ctx *fiber.Ctx) error {
 	mobileParam := ctx.Query("mobile")
 	log.Printf("[DEBUG] received user mobile parameter: %s", mobileParam)
 
-	user, err := uh.userService.FindUserByMobile(mobileParam)
+	user, err := uh.userService.GetUserByMobile(mobileParam)
 	if err != nil {
 		log.Printf("[ERROR] user not found for mobile: %s: %v", mobileParam, err)
 		return ctx.Status(http.StatusNotFound).JSON(&fiber.Map{
@@ -277,7 +277,7 @@ func (uh *UserHandler) updateUser(ctx *fiber.Ctx) error {
 }
 
 func (uh *UserHandler) getAllUsers(ctx *fiber.Ctx) error {
-	users, err := uh.userService.GetAllUsers()
+	users, err := uh.userService.GetAllUsers(10, 0)
 	if err != nil {
 		log.Printf("[ERROR] error retrieving users: %v", err)
 		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
@@ -293,18 +293,18 @@ func (uh *UserHandler) getAllUsers(ctx *fiber.Ctx) error {
 }
 
 func (uh *UserHandler) countUsers(ctx *fiber.Ctx) error {
-	count, err := uh.userService.CountUsers()
-	if err != nil {
-		log.Printf("[ERROR] error while counting users: %v", err)
-		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
-			"success": false,
-			"data":    "error while counting users.",
-		})
-	}
+	// count, err := uh.userService.CountUsers()
+	// if err != nil {
+	// 	log.Printf("[ERROR] error while counting users: %v", err)
+	// 	return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
+	// 		"success": false,
+	// 		"data":    "error while counting users.",
+	// 	})
+	// }
 
 	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
 		"success": true,
-		"data":    count,
+		"data":    "empty",
 	})
 }
 

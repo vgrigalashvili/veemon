@@ -6,7 +6,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/vgrigalashvili/veemon/internal/domain"
 	"github.com/vgrigalashvili/veemon/internal/dto"
 	"github.com/vgrigalashvili/veemon/internal/helper"
@@ -38,13 +37,13 @@ func (as *AuthService) SignUp(args dto.AuthSignUp) (string, error) {
 		return "", errors.New("internal server error: UserService is not initialized")
 	}
 
-	existingUser, err := as.UserService.FindUserByMobile(args.Mobile)
-	if err != nil && !errors.Is(err, repository.ErrRecordNotFound) {
+	userExists, err := as.UserService.CheckUserByMobile(args.Mobile)
+	if err != nil && !errors.Is(err, repository.ErrNoRows) {
 		log.Printf("[ERROR] not found: %v", err)
 		return "", err
 	}
 
-	if existingUser.ID != uuid.Nil {
+	if userExists {
 		log.Printf("[ERROR] user with mobile %s already exists", args.Mobile)
 		return "", ErrUserAlreadyExists
 	}
@@ -63,7 +62,7 @@ func (as *AuthService) SignUp(args dto.AuthSignUp) (string, error) {
 }
 
 func (as *AuthService) SignIn(args dto.AuthSignIn) (*token.Payload, error) {
-	existedUser, err := as.UserService.FindUserByMobile(args.Mobile)
+	existedUser, err := as.UserService.GetUserByMobile(args.Mobile)
 	if err != nil {
 		log.Printf("[ERROR] sign-in failed for mobile %s: user not found or database error: %v", args.Mobile, err)
 		return &token.Payload{}, err
