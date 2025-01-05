@@ -44,6 +44,7 @@ func InitializeUserHandler(rh *rest.RestHandler) {
 	api.Patch("/user/update", authMiddleware, userHandler.update)
 }
 
+// add handles the creation of a new user.
 func (uh *UserHandler) add(ctx *fiber.Ctx) error {
 
 	// Parse the request body into the DTO.
@@ -100,6 +101,7 @@ func (uh *UserHandler) add(ctx *fiber.Ctx) error {
 	})
 }
 
+// get handles the retrieval of a user by ID or mobile number.
 func (uh *UserHandler) get(ctx *fiber.Ctx) error {
 	if uh.userService == nil {
 		log.Printf("[ERROR] user service not initialized")
@@ -155,6 +157,7 @@ func (uh *UserHandler) get(ctx *fiber.Ctx) error {
 	})
 }
 
+// update handles the update of a user's information.
 func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 	// Extract userID from the token via middleware
 	requesterID := ctx.Locals("userID")

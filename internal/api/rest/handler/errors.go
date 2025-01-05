@@ -4,7 +4,7 @@ import "errors"
 
 var (
 	// user handler errors
-	ErrInvalidUserIDFormat = errors.New("Invalid user ID format")
+	ErrInvalidUserIDFormat = errors.New("invalid user ID format")
 	ErrInvalidEmail        = errors.New("invalid email format")
 
 	ErrEmailQueryParamRequired = errors.New("query parameter required: email")

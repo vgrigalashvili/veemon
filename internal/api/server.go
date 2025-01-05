@@ -70,10 +70,10 @@ func StartServer(ac config.AppConfig) {
 	log.Println("[INFO] database connection established successfully")
 	defer conn.Close(ctx)
 
+	// initialize the database queries.
 	queries := db.New(conn)
-	log.Printf("[DEBUG] Queries instance: %v", queries)
 
-	// Initialize the token maker.
+	// initialize the token maker.
 	tokenMaker, err := token.NewPasetoMaker(ac.TokenSymmetricKey)
 	if err != nil {
 		log.Fatalf("[FATAL] error while creating Paseto maker: %v", err)

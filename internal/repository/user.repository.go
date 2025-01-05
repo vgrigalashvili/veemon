@@ -56,8 +56,8 @@ type userRepository struct {
 }
 
 // NewUserRepository creates a new instance of userRepository.
+// It requires a *db.Queries instance to be passed in.
 func NewUserRepository(q *db.Queries) *userRepository {
-	log.Printf("[INFO] initializing *userRepository %v", q)
 	if q == nil {
 		log.Fatalf("[FATAL] queries cannot be nil")
 	}
@@ -65,6 +65,7 @@ func NewUserRepository(q *db.Queries) *userRepository {
 }
 
 // CreateUser inserts a new user into the database.
+// Returns the created user or an error if the operation failed.
 func (ur *userRepository) CreateUser(ctx context.Context, user domain.User) (domain.User, error) {
 	dbUser, err := ur.queries.AddUser(ctx, db.AddUserParams{
 		ID:           user.ID,
@@ -86,6 +87,7 @@ func (ur *userRepository) CreateUser(ctx context.Context, user domain.User) (dom
 }
 
 // GetUserByID retrieves a user by ID, excluding soft-deleted users.
+// Returns the user or an error if the user could not be found or if an error occurs.
 func (ur *userRepository) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, error) {
 	dbUser, err := ur.queries.GetUserByID(ctx, id)
 	if err != nil {
@@ -98,6 +100,7 @@ func (ur *userRepository) GetUserByID(ctx context.Context, id uuid.UUID) (domain
 }
 
 // GetAllUsers retrieves all users with pagination, excluding soft-deleted users.
+// Returns a slice of users or an error if the operation failed.
 func (ur *userRepository) GetAllUsers(ctx context.Context, limit, offset int) ([]domain.User, error) {
 	dbUsers, err := ur.queries.ListUsers(ctx, db.ListUsersParams{
 		Limit:  int32(limit),
@@ -114,6 +117,7 @@ func (ur *userRepository) GetAllUsers(ctx context.Context, limit, offset int) ([
 }
 
 // GetUserByMobile retrieves a user by mobile number.
+// Returns the user or an error if the user could not be found or if an error occurs.
 func (ur *userRepository) GetUserByMobile(ctx context.Context, mobile string) (domain.User, error) {
 	dbUser, err := ur.queries.GetUserByMobile(ctx, mobile)
 	if err != nil {
@@ -150,6 +154,7 @@ func (ur *userRepository) CheckUserExistsByEmail(ctx context.Context, email stri
 }
 
 // UpdateUser updates an existing user in the database.
+// Returns the updated user or an error if the operation failed.
 func (ur *userRepository) UpdateUser(ctx context.Context, user domain.User) (domain.User, error) {
 	err := ur.queries.UpdateUser(ctx, db.UpdateUserParams{
 		ID:           user.ID,
