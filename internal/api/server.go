@@ -22,8 +22,6 @@ import (
 	"github.com/vgrigalashvili/veemon/internal/api/rest/handler"
 	"github.com/vgrigalashvili/veemon/internal/config"
 	"github.com/vgrigalashvili/veemon/internal/mail"
-	"github.com/vgrigalashvili/veemon/internal/repository"
-	"github.com/vgrigalashvili/veemon/internal/service"
 	"github.com/vgrigalashvili/veemon/internal/token"
 	"github.com/vgrigalashvili/veemon/internal/worker"
 	"golang.org/x/sync/errgroup"
@@ -81,16 +79,10 @@ func StartServer(ac config.AppConfig) {
 		log.Fatalf("[FATAL] error while creating Paseto maker: %v", err)
 	}
 
-	// Initialize services and handlers.
-	userRepository := repository.NewUserRepository(queries)
-	userService := service.NewUserService(userRepository)
-	authService := service.NewAuthService(tokenMaker, userService)
-
 	restHandler := &rest.RestHandler{
-		API:         api,
-		Token:       tokenMaker,
-		AuthService: authService,
-		UserService: userService,
+		API:     api,
+		Token:   tokenMaker,
+		Querier: queries,
 	}
 	initializeHandler(restHandler)
 

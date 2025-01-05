@@ -5,7 +5,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	db "github.com/vgrigalashvili/veemon/internal/db/sqlc"
-	"github.com/vgrigalashvili/veemon/internal/service"
 	"github.com/vgrigalashvili/veemon/internal/token"
 )
 
@@ -24,11 +23,9 @@ var (
 
 // central structure for handling API routes and their dependencies.
 type RestHandler struct {
-	API         *fiber.App           // Fiber app instance used for routing.
-	DB          *db.Queries          // database connection instance.
-	AuthService *service.AuthService // authentication service instance.
-	UserService *service.UserService // user service instance.
-	Token       token.Maker          // token maker instance for authentication and authorization.
+	API     *fiber.App  // Fiber app instance used for routing.
+	Querier *db.Queries // database connection instance.
+	Token   token.Maker // token maker instance for authentication and authorization.
 	// ErrorHandler APIErrorHandler      // error handler for API requests.
 	// SEC string // symmetric key used for secure operations.
 }

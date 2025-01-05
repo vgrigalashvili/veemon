@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/vgrigalashvili/veemon/internal/api/rest"
 	"github.com/vgrigalashvili/veemon/internal/dto"
+	"github.com/vgrigalashvili/veemon/internal/repository"
 	"github.com/vgrigalashvili/veemon/internal/service"
 )
 
@@ -18,9 +19,11 @@ type AuthHandler struct {
 func InitializeAuthHandler(rh *rest.RestHandler) {
 
 	api := rh.API
-
+	userRepository := repository.NewUserRepository(rh.Querier)
+	userService := service.NewUserService(userRepository)
+	authService := service.NewAuthService(rh.Token, userService)
 	authHandler := &AuthHandler{
-		authService: rh.AuthService,
+		authService: authService,
 	}
 	// public
 	api.Post("/sign-up", authHandler.signUp)
@@ -34,7 +37,7 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] invalid request body: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    rest.ErrInvalidRequestJSON,
+			"data":    ErrInvalidRequestJSON,
 		})
 	}
 
@@ -50,7 +53,7 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 		}
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    errValidationField,
+			"data":    ErrValidationField,
 		})
 	}
 
@@ -82,7 +85,7 @@ func (uh *AuthHandler) signIn(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] invalid request body: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    rest.ErrInvalidRequestJSON,
+			"data":    ErrInvalidRequestJSON,
 		})
 	}
 	token, err := uh.authService.SignIn(credentials)

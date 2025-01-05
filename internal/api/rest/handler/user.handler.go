@@ -17,18 +17,8 @@ import (
 	"github.com/vgrigalashvili/veemon/internal/service"
 )
 
-var (
-	// validation errors
-	errValidationField = errors.New("validation field")
-
-	// user handler errors
-	errUserNotFound          = errors.New("user not found")
-	ErrInvalidUserIDFormat   = errors.New("invalid user ID format")
-	errUniqueMobileComplaint = errors.New("user with this mobile already exists")
-	// errUniqueEmailComplaint     = errors.New("user with given email already exists")
-
-)
-
+// UserHandler is responsible for handling user-related operations.
+// It combines service interactions with API request/response handling.
 type UserHandler struct {
 	userService *service.UserService
 	handleError func(ctx *fiber.Ctx, err error) error // error handler function for handling API errors.
@@ -38,7 +28,7 @@ func InitializeUserHandler(rh *rest.RestHandler) {
 
 	api := rh.API
 	errorHandler := &rest.DefaultAPIErrorHandler{}
-	userRepository := repository.NewUserRepository(rh.DB)
+	userRepository := repository.NewUserRepository(rh.Querier)
 	userService := service.NewUserService(userRepository)
 
 	userHandler := &UserHandler{
@@ -91,12 +81,10 @@ func (uh *UserHandler) add(ctx *fiber.Ctx) error {
 	userID, err := uh.userService.AddUser(user)
 	if err != nil {
 		log.Printf("[ERROR] failed to create user: %v", err)
-		if errors.Is(err, errUniqueMobileComplaint) {
+		if errors.Is(err, ErrUniqueMobileComplaint) {
 			return ctx.Status(http.StatusConflict).JSON(&fiber.Map{
 				"success": false,
-
-				// TODO: update error
-				"data": errUniqueMobileComplaint.Error(),
+				"data":    ErrUniqueMobileComplaint,
 			})
 		}
 		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
@@ -128,7 +116,7 @@ func (uh *UserHandler) get(ctx *fiber.Ctx) error {
 			log.Printf("[INFO] no user mobile provided in the request query parameter")
 			return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 				"success": false,
-				"data":    rest.ErrInvalidQueryParam,
+				"data":    ErrInvalidQueryParam,
 			})
 		}
 		user, err := uh.userService.GetUserByMobile(mobileParam)
@@ -136,7 +124,7 @@ func (uh *UserHandler) get(ctx *fiber.Ctx) error {
 			log.Printf("[ERROR] user not found for mobile: %s: %v", mobileParam, err)
 			return ctx.Status(http.StatusNotFound).JSON(&fiber.Map{
 				"success": false,
-				"data":    errUserNotFound,
+				"data":    ErrNotFound,
 			})
 		}
 		return ctx.Status(http.StatusOK).JSON(&fiber.Map{
@@ -158,7 +146,7 @@ func (uh *UserHandler) get(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] user not found for ID %s: %v", userID, err)
 		return ctx.Status(http.StatusNotFound).JSON(&fiber.Map{
 			"success": false,
-			"data":    errUserNotFound,
+			"data":    ErrNotFound,
 		})
 	}
 	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
@@ -173,14 +161,14 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 	if requesterID == nil {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
-			"data":    rest.ErrUnauthorized,
+			"data":    ErrUnauthorized,
 		})
 	}
 	requesterRole := ctx.Locals("userRole")
 	if requesterRole == "" {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
-			"data":    rest.ErrUnverified,
+			"data":    ErrUnverified,
 		})
 	}
 	// Parse the user ID from the request URL
@@ -188,7 +176,7 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 	if requestedID == "" {
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    rest.ErrInvalidQueryParam,
+			"data":    ErrInvalidQueryParam,
 		})
 	}
 
@@ -215,7 +203,7 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] invalid JSON body in request: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    rest.ErrInvalidRequestJSON,
+			"data":    ErrInvalidRequestJSON,
 		})
 	}
 
@@ -232,7 +220,7 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] validation error: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    rest.ErrValidationField,
+			"data":    ErrValidationField,
 		})
 	}
 
@@ -251,22 +239,6 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
 		"success": true,
 		"data":    updatedUser,
-	})
-}
-
-func (uh *UserHandler) getAllUsers(ctx *fiber.Ctx) error {
-	users, err := uh.userService.GetAllUsers(10, 0)
-	if err != nil {
-		log.Printf("[ERROR] error retrieving users: %v", err)
-		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
-			"success": false,
-			"data":    "Error retrieving users.",
-		})
-	}
-
-	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
-		"success": true,
-		"data":    users,
 	})
 }
 
