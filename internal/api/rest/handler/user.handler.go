@@ -140,7 +140,7 @@ func (uh *UserHandler) get(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] invalid user ID format: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    ErrInvalidUserIDFormat,
+			"data":    ErrInvalidUUIDFormat.Error(),
 		})
 	}
 	user, err := uh.userService.GetUserByID(userID)
@@ -196,7 +196,7 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] invalid user ID format: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    ErrInvalidUserIDFormat,
+			"data":    ErrInvalidUUIDFormat.Error(),
 		})
 	}
 

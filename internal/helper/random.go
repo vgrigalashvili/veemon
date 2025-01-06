@@ -60,3 +60,9 @@ func RandomCurrency() string {
 func RandomEmail() string {
 	return fmt.Sprintf("%s@email.com", RandomString(6))
 }
+
+// RandomPin generates a random 6-digit pin
+// And returns it as a int
+func RandomPin() int {
+	return int(RandomInt(100000, 999999))
+}

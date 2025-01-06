@@ -35,7 +35,7 @@ func AuthMiddleware(tm token.Maker) fiber.Handler {
 			// Return a 401 Unauthorized response if the header is missing.
 			return ctx.Status(http.StatusUnauthorized).JSON(&fiber.Map{
 				"success": false,
-				"data":    ErrAuthHeaderRequired,
+				"data":    ErrAuthHeaderRequired.Error(),
 			})
 		}
 
@@ -46,7 +46,7 @@ func AuthMiddleware(tm token.Maker) fiber.Handler {
 			// Return a 401 Unauthorized response for invalid format.
 			return ctx.Status(http.StatusUnauthorized).JSON(&fiber.Map{
 				"success": false,
-				"data":    ErrInvalidAuthorizationHeaderFormat,
+				"data":    ErrInvalidAuthorizationHeaderFormat.Error(),
 			})
 		}
 

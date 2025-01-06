@@ -12,7 +12,7 @@ CREATE TABLE users (
     password_hash TEXT NOT NULL,
     pin INTEGER CHECK (pin >= 100000 AND pin <= 999999), -- Example 6-digit OTP ( One Time Pin )
     verified BOOLEAN NOT NULL DEFAULT FALSE,
-    user_type TEXT NOT NULL DEFAULT 'trial',
+    user_type TEXT NOT NULL DEFAULT 'backend-developer',
     expires_at TIMESTAMP NULL
 );
 

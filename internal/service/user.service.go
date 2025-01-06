@@ -47,7 +47,8 @@ func (us *UserService) AddUser(args domain.User) (string, error) {
 
 	user.ID = uuid.New()
 	user.Password = hashedPassword
-	user.Pin = 123456
+	user.Pin = helper.RandomPin()
+	user.Role = "backend-developer"
 	user.ExpiresAt = &expiry
 
 	log.Printf("[INFO] %v", user)
