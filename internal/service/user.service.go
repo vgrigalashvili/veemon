@@ -128,6 +128,7 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 	}
 	if arguments.FirstName != nil {
 		user.FirstName = *arguments.FirstName
+		log.Printf("[DEBUG] updating user first name: %s", user.FirstName)
 	}
 	if arguments.LastName != nil {
 		user.LastName = *arguments.LastName
@@ -151,13 +152,14 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 	// 	user.ExpiresAt = arguments.ExpiresAt
 	// }
 
-	// Save the updated user to the database.
+	// save the updated user to the database.
 	updatedUser, err := us.UserRepo.UpdateUser(context.Background(), user)
 	if err != nil {
 		log.Printf("[ERROR] failed to update user in the database: %v", err)
 		return domain.User{}, fmt.Errorf("failed to update user: %w", err)
 	}
 
+	log.Printf("[DEBUG] updated user: %+v", updatedUser.FirstName)
 	log.Printf("[INFO] User with ID %s successfully updated", userID)
 	return updatedUser, nil
 }

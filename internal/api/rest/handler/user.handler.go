@@ -182,14 +182,6 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 			"data":    ErrInvalidQueryParam,
 		})
 	}
-
-	if fmt.Sprint(requestedID) != fmt.Sprint(requesterID) && fmt.Sprint(requesterRole) != "super" {
-		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"success": false,
-			"data":    "you are not allowed to update this user's information",
-		})
-	}
-
 	// Parse the user ID from query parameters (or include it in the body, if preferred).
 	userID, err := uuid.Parse(requestedID)
 	if err != nil {
@@ -199,7 +191,6 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 			"data":    ErrInvalidUUIDFormat.Error(),
 		})
 	}
-
 	// Parse the request body into the DTO.
 	var updateData dto.UpdateUser
 	if err := ctx.BodyParser(&updateData); err != nil {
@@ -207,6 +198,15 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
 			"data":    ErrInvalidRequestJSON,
+		})
+	}
+
+	log.Printf("[DEBUG] requester data!!!!!!!!!!!!!!!!!: %s", fmt.Sprint(*updateData.FirstName))
+
+	if fmt.Sprint(requestedID) != fmt.Sprint(requesterID) && fmt.Sprint(requesterRole) != "super" {
+		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"success": false,
+			"data":    "you are not allowed to update this user's information",
 		})
 	}
 

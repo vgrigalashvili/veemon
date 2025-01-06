@@ -160,22 +160,25 @@ func (ur *userRepository) CheckUserExistsByEmail(ctx context.Context, email stri
 // UpdateUser updates an existing user in the database.
 // Returns the updated user or an error if the operation failed.
 func (ur *userRepository) UpdateUser(ctx context.Context, user domain.User) (domain.User, error) {
-	err := ur.queries.UpdateUser(ctx, db.UpdateUserParams{
-		ID:           user.ID,
-		Role:         user.Role,
-		FirstName:    pgtype.Text{String: user.FirstName},
-		LastName:     pgtype.Text{String: user.LastName},
-		Email:        pgtype.Text{String: user.Email},
-		Mobile:       user.Mobile,
-		PasswordHash: user.Password,
-		Pin:          pgtype.Int4{Int32: int32(user.Pin)},
-		Verified:     user.Verified,
-		UserType:     user.UserType,
-		ExpiresAt:    pgtype.Timestamp{Time: *user.ExpiresAt},
-	})
+	var newParams db.UpdateUserParams
+
+	newParams.ID = user.ID
+	newParams.FirstName = pgtype.Text{String: user.FirstName}
+	newParams.LastName = pgtype.Text{String: user.LastName}
+	newParams.Email = pgtype.Text{String: user.Email}
+	newParams.Mobile = user.Mobile
+	newParams.PasswordHash = user.Password
+	newParams.Pin = pgtype.Int4{Int32: int32(user.Pin)}
+	newParams.Verified = user.Verified
+	newParams.UserType = user.UserType
+	newParams.ExpiresAt = pgtype.Timestamp{Time: *user.ExpiresAt}
+
+	log.Printf("[INFO] YYYYYYYYYYYYYYY!!!   %v", newParams.FirstName)
+	err := ur.queries.UpdateUser(ctx, newParams)
 	if err != nil {
 		return domain.User{}, err
 	}
+
 	return ur.GetUserByID(ctx, user.ID)
 }
 

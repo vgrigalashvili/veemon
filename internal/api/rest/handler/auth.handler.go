@@ -85,7 +85,7 @@ func (uh *AuthHandler) signIn(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] invalid request body: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    ErrInvalidRequestJSON,
+			"data":    ErrInvalidRequestJSON.Error(),
 		})
 	}
 	token, err := uh.authService.SignIn(credentials)
