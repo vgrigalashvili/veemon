@@ -9,7 +9,6 @@ import (
 	"github.com/vgrigalashvili/veemon/internal/domain"
 	"github.com/vgrigalashvili/veemon/internal/dto"
 	"github.com/vgrigalashvili/veemon/internal/helper"
-	"github.com/vgrigalashvili/veemon/internal/repository"
 	"github.com/vgrigalashvili/veemon/internal/token"
 )
 
@@ -37,11 +36,7 @@ func (as *AuthService) HandleSignUpProcesses(args dto.AuthSignUp) (string, error
 		return "", errors.New("internal server error: UserService is not initialized")
 	}
 
-	userExists, err := as.UserService.CheckUserByMobile(args.Mobile)
-	if err != nil && !errors.Is(err, repository.ErrNoRows) {
-		log.Printf("[ERROR] not found: %v", err)
-		return "", err
-	}
+	userExists := as.UserService.CheckUserByMobile(args.Mobile)
 
 	if userExists {
 		log.Printf("[ERROR] user with mobile %s already exists", args.Mobile)

@@ -69,7 +69,7 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 		}
 		return ctx.Status(http.StatusInternalServerError).JSON(&fiber.Map{
 			"success": false,
-			"data":    "something went wrong",
+			"data":    "something went wrong:" + err.Error(),
 		})
 	}
 

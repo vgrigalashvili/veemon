@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	db "github.com/vgrigalashvili/veemon/internal/db/sqlc"
@@ -133,9 +134,12 @@ func (ur *userRepository) GetUserByMobile(ctx context.Context, mobile string) (d
 // Returns true if the user exists, false otherwise.
 func (ur *userRepository) CheckUserExistsByMobile(ctx context.Context, mobile string) bool {
 	_, err := ur.queries.GetUserByMobile(ctx, mobile)
-	if err != nil && errors.Is(err, db.ErrNoRows) {
-		return false
-	} else if err != nil {
+	if err != nil {
+		// Check if the error is due to no rows being found
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false
+		}
+		// Log unexpected errors
 		log.Printf("[ERROR] something went wrong in *userRepository: CheckUserExistsByMobile %v", err)
 	}
 	return true

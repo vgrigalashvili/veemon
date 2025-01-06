@@ -77,18 +77,19 @@ func (us *UserService) GetUserByID(userID uuid.UUID) (domain.User, error) {
 }
 
 // FindUserByMobile retrieves a user by their mobile number.
-// Returns the user or an error if the user could not be found or if an error occurs.
-func (us *UserService) CheckUserByMobile(mobile string) (bool, error) {
+// Return false if the user does not exist, otherwise true.
+func (us *UserService) CheckUserByMobile(mobile string) bool {
 	log.Printf("[INFO] userRepo : %v", us.UserRepo)
 	if us.UserRepo == nil {
 		log.Printf("[ERROR] UserRepo is not initialized")
-		return false, fmt.Errorf("UserRepo is not initialized")
+		return false
 	}
 
 	if ok := us.UserRepo.CheckUserExistsByMobile(context.Background(), mobile); !ok {
-		return false, ErrUserNotFound
+		log.Printf("[ERROR] User with mobile %s already exists", mobile)
+		return false
 	}
-	return true, nil
+	return true
 }
 
 // FindUserByEmail retrieves a user by their email address.
