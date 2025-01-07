@@ -13,37 +13,44 @@ import (
 )
 
 const addUser = `-- name: AddUser :one
+
 INSERT INTO users (
-    id, first_name, last_name, email, mobile, password_hash, role, user_type, pin, verified, expires_at
+    id, first_name, last_name, type, role, email, mobile, password_hash, pin, verified, expires_at
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-) RETURNING id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, pin, verified, user_type, expires_at
+) RETURNING id, created_at, updated_at, deleted_at, first_name, last_name, type, role, email, mobile, password_hash, pin, verified, expires_at
 `
 
 type AddUserParams struct {
 	ID           uuid.UUID        `json:"id"`
 	FirstName    pgtype.Text      `json:"first_name"`
 	LastName     pgtype.Text      `json:"last_name"`
+	Type         string           `json:"type"`
+	Role         string           `json:"role"`
 	Email        pgtype.Text      `json:"email"`
 	Mobile       string           `json:"mobile"`
 	PasswordHash string           `json:"password_hash"`
-	Role         string           `json:"role"`
-	UserType     string           `json:"user_type"`
 	Pin          pgtype.Int4      `json:"pin"`
 	Verified     bool             `json:"verified"`
 	ExpiresAt    pgtype.Timestamp `json:"expires_at"`
 }
 
+// ============================================
+// QUERIES FOR USER MANAGEMENT
+// ============================================
+// Add a new user
+// Inserts a new user record and returns the full record.
+// Parameters: id, first_name, last_name, type, role, email, mobile, password_hash, pin, verified, expires_at
 func (q *Queries) AddUser(ctx context.Context, arg AddUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, addUser,
 		arg.ID,
 		arg.FirstName,
 		arg.LastName,
+		arg.Type,
+		arg.Role,
 		arg.Email,
 		arg.Mobile,
 		arg.PasswordHash,
-		arg.Role,
-		arg.UserType,
 		arg.Pin,
 		arg.Verified,
 		arg.ExpiresAt,
@@ -54,99 +61,15 @@ func (q *Queries) AddUser(ctx context.Context, arg AddUserParams) (User, error) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.Role,
 		&i.FirstName,
 		&i.LastName,
+		&i.Type,
+		&i.Role,
 		&i.Email,
 		&i.Mobile,
 		&i.PasswordHash,
 		&i.Pin,
 		&i.Verified,
-		&i.UserType,
-		&i.ExpiresAt,
-	)
-	return i, err
-}
-
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, pin, verified, user_type, expires_at
-FROM users
-WHERE email = $1 AND deleted_at IS NULL
-`
-
-func (q *Queries) GetUserByEmail(ctx context.Context, email pgtype.Text) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-		&i.Role,
-		&i.FirstName,
-		&i.LastName,
-		&i.Email,
-		&i.Mobile,
-		&i.PasswordHash,
-		&i.Pin,
-		&i.Verified,
-		&i.UserType,
-		&i.ExpiresAt,
-	)
-	return i, err
-}
-
-const getUserByID = `-- name: GetUserByID :one
-SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, pin, verified, user_type, expires_at
-FROM users
-WHERE id = $1 AND deleted_at IS NULL
-`
-
-func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByID, id)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-		&i.Role,
-		&i.FirstName,
-		&i.LastName,
-		&i.Email,
-		&i.Mobile,
-		&i.PasswordHash,
-		&i.Pin,
-		&i.Verified,
-		&i.UserType,
-		&i.ExpiresAt,
-	)
-	return i, err
-}
-
-const getUserByMobile = `-- name: GetUserByMobile :one
-SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, pin, verified, user_type, expires_at
-FROM users
-WHERE mobile = $1 AND deleted_at IS NULL
-`
-
-func (q *Queries) GetUserByMobile(ctx context.Context, mobile string) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByMobile, mobile)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-		&i.Role,
-		&i.FirstName,
-		&i.LastName,
-		&i.Email,
-		&i.Mobile,
-		&i.PasswordHash,
-		&i.Pin,
-		&i.Verified,
-		&i.UserType,
 		&i.ExpiresAt,
 	)
 	return i, err
@@ -158,6 +81,9 @@ FROM users
 WHERE id = $1 AND deleted_at IS NULL
 `
 
+// Retrieve user's role
+// Fetches only the role of a user by ID, excluding soft-deleted users.
+// Parameters: id
 func (q *Queries) GetUserRole(ctx context.Context, id uuid.UUID) (string, error) {
 	row := q.db.QueryRow(ctx, getUserRole, id)
 	var role string
@@ -165,8 +91,59 @@ func (q *Queries) GetUserRole(ctx context.Context, id uuid.UUID) (string, error)
 	return role, err
 }
 
+const listSoftDeletedUsers = `-- name: ListSoftDeletedUsers :many
+SELECT id, created_at, updated_at, deleted_at, first_name, last_name, type, role, email, mobile, password_hash, pin, verified, expires_at
+FROM users
+WHERE deleted_at IS NOT NULL
+ORDER BY deleted_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListSoftDeletedUsersParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+// List soft-deleted users
+// Fetches a paginated list of soft-deleted users for recovery or auditing.
+// Parameters: limit, offset
+func (q *Queries) ListSoftDeletedUsers(ctx context.Context, arg ListSoftDeletedUsersParams) ([]User, error) {
+	rows, err := q.db.Query(ctx, listSoftDeletedUsers, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.FirstName,
+			&i.LastName,
+			&i.Type,
+			&i.Role,
+			&i.Email,
+			&i.Mobile,
+			&i.PasswordHash,
+			&i.Pin,
+			&i.Verified,
+			&i.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUsers = `-- name: ListUsers :many
-SELECT id, created_at, updated_at, deleted_at, role, first_name, last_name, email, mobile, password_hash, pin, verified, user_type, expires_at
+SELECT id, created_at, updated_at, deleted_at, first_name, last_name, type, role, email, mobile, password_hash, pin, verified, expires_at
 FROM users
 WHERE deleted_at IS NULL
 ORDER BY created_at DESC
@@ -178,6 +155,9 @@ type ListUsersParams struct {
 	Offset int32 `json:"offset"`
 }
 
+// List all active users
+// Fetches a paginated list of active users, ordered by creation date.
+// Parameters: limit, offset
 func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error) {
 	rows, err := q.db.Query(ctx, listUsers, arg.Limit, arg.Offset)
 	if err != nil {
@@ -192,15 +172,15 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
-			&i.Role,
 			&i.FirstName,
 			&i.LastName,
+			&i.Type,
+			&i.Role,
 			&i.Email,
 			&i.Mobile,
 			&i.PasswordHash,
 			&i.Pin,
 			&i.Verified,
-			&i.UserType,
 			&i.ExpiresAt,
 		); err != nil {
 			return nil, err
@@ -211,6 +191,20 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 		return nil, err
 	}
 	return items, nil
+}
+
+const reactivateUser = `-- name: ReactivateUser :exec
+UPDATE users
+SET deleted_at = NULL, updated_at = now()
+WHERE id = $1
+`
+
+// Reactivate soft-deleted user
+// Removes the deleted_at timestamp to restore a soft-deleted user.
+// Parameters: id
+func (q *Queries) ReactivateUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, reactivateUser, id)
+	return err
 }
 
 const resetUserPin = `-- name: ResetUserPin :exec
@@ -224,9 +218,65 @@ type ResetUserPinParams struct {
 	Pin pgtype.Int4 `json:"pin"`
 }
 
+// Reset user's pin
+// Updates a user's PIN with a new value.
+// Parameters: id, pin
 func (q *Queries) ResetUserPin(ctx context.Context, arg ResetUserPinParams) error {
 	_, err := q.db.Exec(ctx, resetUserPin, arg.ID, arg.Pin)
 	return err
+}
+
+const searchUsers = `-- name: SearchUsers :many
+SELECT id, created_at, updated_at, deleted_at, first_name, last_name, type, role, email, mobile, password_hash, pin, verified, expires_at
+FROM users
+WHERE deleted_at IS NULL
+  AND (email ILIKE '%' || $1 || '%' OR mobile ILIKE '%' || $1 || '%' OR first_name ILIKE '%' || $1 || '%' OR last_name ILIKE '%' || $1 || '%')
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type SearchUsersParams struct {
+	Column1 pgtype.Text `json:"column_1"`
+	Limit   int32       `json:"limit"`
+	Offset  int32       `json:"offset"`
+}
+
+// Search users
+// Searches for users by name, email, or mobile, excluding soft-deleted users.
+// Parameters: search_term, limit, offset
+func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error) {
+	rows, err := q.db.Query(ctx, searchUsers, arg.Column1, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.FirstName,
+			&i.LastName,
+			&i.Type,
+			&i.Role,
+			&i.Email,
+			&i.Mobile,
+			&i.PasswordHash,
+			&i.Pin,
+			&i.Verified,
+			&i.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setupUserRole = `-- name: SetupUserRole :exec
@@ -240,6 +290,9 @@ type SetupUserRoleParams struct {
 	Role string    `json:"role"`
 }
 
+// Update user's role
+// Updates the role of a user.
+// Parameters: id, role
 func (q *Queries) SetupUserRole(ctx context.Context, arg SetupUserRoleParams) error {
 	_, err := q.db.Exec(ctx, setupUserRole, arg.ID, arg.Role)
 	return err
@@ -251,6 +304,9 @@ SET deleted_at = now()
 WHERE id = $1
 `
 
+// Soft delete user
+// Marks a user as deleted by setting the deleted_at timestamp.
+// Parameters: id
 func (q *Queries) SoftDeleteUser(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, softDeleteUser, id)
 	return err
@@ -265,11 +321,11 @@ SET
     mobile = COALESCE($5, mobile),
     password_hash = COALESCE($6, password_hash),
     role = COALESCE($7, role),
-    user_type = COALESCE($8, user_type),
+    type = COALESCE($8, type),
     pin = COALESCE($9, pin),
     verified = COALESCE($10, verified),
-    updated_at = now(),
-    expires_at = COALESCE($11, expires_at)
+    expires_at = COALESCE($11, expires_at),
+    updated_at = now()
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -281,12 +337,15 @@ type UpdateUserParams struct {
 	Mobile       string           `json:"mobile"`
 	PasswordHash string           `json:"password_hash"`
 	Role         string           `json:"role"`
-	UserType     string           `json:"user_type"`
+	Type         string           `json:"type"`
 	Pin          pgtype.Int4      `json:"pin"`
 	Verified     bool             `json:"verified"`
 	ExpiresAt    pgtype.Timestamp `json:"expires_at"`
 }
 
+// Update user details
+// Updates user fields only if new values are provided.
+// Parameters: id, first_name, last_name, email, mobile, password_hash, role, type, pin, verified, expires_at
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 	_, err := q.db.Exec(ctx, updateUser,
 		arg.ID,
@@ -296,7 +355,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 		arg.Mobile,
 		arg.PasswordHash,
 		arg.Role,
-		arg.UserType,
+		arg.Type,
 		arg.Pin,
 		arg.Verified,
 		arg.ExpiresAt,
@@ -315,6 +374,9 @@ type UserExpiresAtParams struct {
 	ExpiresAt pgtype.Timestamp `json:"expires_at"`
 }
 
+// Update user's expiration time
+// Sets or updates the expiration time for a user.
+// Parameters: id, expires_at
 func (q *Queries) UserExpiresAt(ctx context.Context, arg UserExpiresAtParams) error {
 	_, err := q.db.Exec(ctx, userExpiresAt, arg.ID, arg.ExpiresAt)
 	return err
@@ -326,7 +388,103 @@ SET verified = true, updated_at = now()
 WHERE id = $1
 `
 
+// Verify user
+// Marks a user as verified.
+// Parameters: id
 func (q *Queries) VerifyUser(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, verifyUser, id)
 	return err
+}
+
+const whoIsBEmail = `-- name: WhoIsBEmail :one
+SELECT id, created_at, updated_at, deleted_at, first_name, last_name, type, role, email, mobile, password_hash, pin, verified, expires_at
+FROM users
+WHERE email = $1 AND deleted_at IS NULL
+`
+
+// Retrieve user by email
+// Fetches a user by email, excluding soft-deleted users.
+// Parameters: email
+func (q *Queries) WhoIsBEmail(ctx context.Context, email pgtype.Text) (User, error) {
+	row := q.db.QueryRow(ctx, whoIsBEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.FirstName,
+		&i.LastName,
+		&i.Type,
+		&i.Role,
+		&i.Email,
+		&i.Mobile,
+		&i.PasswordHash,
+		&i.Pin,
+		&i.Verified,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const whoIsBID = `-- name: WhoIsBID :one
+SELECT id, created_at, updated_at, deleted_at, first_name, last_name, type, role, email, mobile, password_hash, pin, verified, expires_at
+FROM users
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+// Retrieve user by ID
+// Fetches a user by ID, excluding soft-deleted users.
+// Parameters: id
+func (q *Queries) WhoIsBID(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, whoIsBID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.FirstName,
+		&i.LastName,
+		&i.Type,
+		&i.Role,
+		&i.Email,
+		&i.Mobile,
+		&i.PasswordHash,
+		&i.Pin,
+		&i.Verified,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const whoIsBMobile = `-- name: WhoIsBMobile :one
+SELECT id, created_at, updated_at, deleted_at, first_name, last_name, type, role, email, mobile, password_hash, pin, verified, expires_at
+FROM users
+WHERE mobile = $1 AND deleted_at IS NULL
+`
+
+// Retrieve user by mobile
+// Fetches a user by mobile, excluding soft-deleted users.
+// Parameters: mobile
+func (q *Queries) WhoIsBMobile(ctx context.Context, mobile string) (User, error) {
+	row := q.db.QueryRow(ctx, whoIsBMobile, mobile)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.FirstName,
+		&i.LastName,
+		&i.Type,
+		&i.Role,
+		&i.Email,
+		&i.Mobile,
+		&i.PasswordHash,
+		&i.Pin,
+		&i.Verified,
+		&i.ExpiresAt,
+	)
+	return i, err
 }

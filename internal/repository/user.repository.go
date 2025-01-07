@@ -35,19 +35,19 @@ type (
 		UserGetters
 	}
 	UserModifiers interface {
-		CreateUser(ctx context.Context, user domain.User) (domain.User, error)
-		UpdateUser(ctx context.Context, user domain.User) (domain.User, error)
-		SoftDeleteUser(ctx context.Context, id uuid.UUID) error
-		UserExpiresAt(ctx context.Context, id uuid.UUID, expiresAt time.Time) error
-		SetupUserRole(ctx context.Context, id uuid.UUID, role string) error
+		Add(ctx context.Context, user domain.User) (domain.User, error)
+		Update(ctx context.Context, user domain.User) (domain.User, error)
+		SoftDelete(ctx context.Context, id uuid.UUID) error
+		ExpiresAt(ctx context.Context, id uuid.UUID, expiresAt time.Time) error
+		SetupRole(ctx context.Context, id uuid.UUID, role string) error
 	}
 	UserGetters interface {
-		GetUserByMobile(ctx context.Context, mobile string) (domain.User, error)
-		GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, error)
-		GetUserRole(ctx context.Context, id uuid.UUID) (string, error)
-		GetAllUsers(ctx context.Context, limit, offset int) ([]domain.User, error)
-		CheckUserExistsByMobile(ctx context.Context, mobile string) bool
-		CheckUserExistsByEmail(ctx context.Context, email string) bool
+		GetByMobile(ctx context.Context, mobile string) (domain.User, error)
+		GetByID(ctx context.Context, id uuid.UUID) (domain.User, error)
+		GetRole(ctx context.Context, id uuid.UUID) (string, error)
+		GetAll(ctx context.Context, limit, offset int) ([]domain.User, error)
+		CheckByMobile(ctx context.Context, mobile string) bool
+		CheckByEmail(ctx context.Context, email string) bool
 	}
 )
 
@@ -67,7 +67,7 @@ func NewUserRepository(q *db.Queries) *userRepository {
 
 // CreateUser inserts a new user into the database.
 // Returns the created user or an error if the operation failed.
-func (ur *userRepository) CreateUser(ctx context.Context, user domain.User) (domain.User, error) {
+func (ur *userRepository) Add(ctx context.Context, user domain.User) (domain.User, error) {
 	dbUser, err := ur.queries.AddUser(ctx, db.AddUserParams{
 		ID:           user.ID,
 		Role:         user.Role,
@@ -78,7 +78,7 @@ func (ur *userRepository) CreateUser(ctx context.Context, user domain.User) (dom
 		PasswordHash: user.Password,
 		Pin:          pgtype.Int4{Int32: int32(user.Pin), Valid: true},
 		Verified:     user.Verified,
-		UserType:     user.UserType,
+		Type:         user.Type,
 		ExpiresAt:    pgtype.Timestamp{Time: *user.ExpiresAt, Valid: true},
 	})
 	if err != nil {
@@ -89,8 +89,8 @@ func (ur *userRepository) CreateUser(ctx context.Context, user domain.User) (dom
 
 // GetUserByID retrieves a user by ID, excluding soft-deleted users.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (ur *userRepository) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, error) {
-	dbUser, err := ur.queries.GetUserByID(ctx, id)
+func (ur *userRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.User, error) {
+	dbUser, err := ur.queries.WhoIsBID(ctx, id)
 	if err != nil {
 		if errors.Is(err, db.ErrNoRows) {
 			return domain.User{}, ErrUserNotFound
@@ -102,7 +102,7 @@ func (ur *userRepository) GetUserByID(ctx context.Context, id uuid.UUID) (domain
 
 // GetAllUsers retrieves all users with pagination, excluding soft-deleted users.
 // Returns a slice of users or an error if the operation failed.
-func (ur *userRepository) GetAllUsers(ctx context.Context, limit, offset int) ([]domain.User, error) {
+func (ur *userRepository) GetAll(ctx context.Context, limit, offset int) ([]domain.User, error) {
 	dbUsers, err := ur.queries.ListUsers(ctx, db.ListUsersParams{
 		Limit:  int32(limit),
 		Offset: int32(offset),
@@ -119,8 +119,8 @@ func (ur *userRepository) GetAllUsers(ctx context.Context, limit, offset int) ([
 
 // GetUserByMobile retrieves a user by mobile number.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (ur *userRepository) GetUserByMobile(ctx context.Context, mobile string) (domain.User, error) {
-	dbUser, err := ur.queries.GetUserByMobile(ctx, mobile)
+func (ur *userRepository) GetByMobile(ctx context.Context, mobile string) (domain.User, error) {
+	dbUser, err := ur.queries.WhoIsBMobile(ctx, mobile)
 	if err != nil {
 		if errors.Is(err, db.ErrNoRows) {
 			return domain.User{}, ErrUserNotFound
@@ -132,8 +132,8 @@ func (ur *userRepository) GetUserByMobile(ctx context.Context, mobile string) (d
 
 // CheckUserExistsByMobile checks if a user exists with the given mobile number.
 // Returns true if the user exists, false otherwise.
-func (ur *userRepository) CheckUserExistsByMobile(ctx context.Context, mobile string) bool {
-	_, err := ur.queries.GetUserByMobile(ctx, mobile)
+func (ur *userRepository) CheckByMobile(ctx context.Context, mobile string) bool {
+	_, err := ur.queries.WhoIsBMobile(ctx, mobile)
 	if err != nil {
 		// Check if the error is due to no rows being found
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -147,8 +147,8 @@ func (ur *userRepository) CheckUserExistsByMobile(ctx context.Context, mobile st
 
 // CheckUserExistsByEmail checks if a user exists with the given email address.
 // Returns true if the user exists, false otherwise.
-func (ur *userRepository) CheckUserExistsByEmail(ctx context.Context, email string) bool {
-	_, err := ur.queries.GetUserByEmail(ctx, pgtype.Text{String: email})
+func (ur *userRepository) CheckByEmail(ctx context.Context, email string) bool {
+	_, err := ur.queries.WhoIsBEmail(ctx, pgtype.Text{String: email})
 	if err != nil && errors.Is(err, db.ErrNoRows) {
 		return false
 	} else if err != nil {
@@ -159,36 +159,42 @@ func (ur *userRepository) CheckUserExistsByEmail(ctx context.Context, email stri
 
 // UpdateUser updates an existing user in the database.
 // Returns the updated user or an error if the operation failed.
-func (ur *userRepository) UpdateUser(ctx context.Context, user domain.User) (domain.User, error) {
-	var newParams db.UpdateUserParams
+func (ur *userRepository) Update(ctx context.Context, user domain.User) (domain.User, error) {
+	// Constructing UpdateUserParams with proper pgtype values
+	newParams := db.UpdateUserParams{
+		ID:           user.ID,
+		FirstName:    pgtype.Text{String: user.FirstName, Valid: user.FirstName != ""},
+		LastName:     pgtype.Text{String: user.LastName, Valid: user.LastName != ""},
+		Email:        pgtype.Text{String: user.Email, Valid: user.Email != ""},
+		Mobile:       user.Mobile,
+		PasswordHash: user.Password,
+		Pin:          pgtype.Int4{Int32: int32(user.Pin), Valid: user.Pin != 0},
+		Verified:     user.Verified,
+		Role:         user.Role,
+		Type:         user.Type,
+		ExpiresAt:    pgtype.Timestamp{Time: *user.ExpiresAt, Valid: user.ExpiresAt != nil},
+	}
 
-	newParams.ID = user.ID
-	newParams.FirstName = pgtype.Text{String: user.FirstName}
-	newParams.LastName = pgtype.Text{String: user.LastName}
-	newParams.Email = pgtype.Text{String: user.Email}
-	newParams.Mobile = user.Mobile
-	newParams.PasswordHash = user.Password
-	newParams.Pin = pgtype.Int4{Int32: int32(user.Pin)}
-	newParams.Verified = user.Verified
-	newParams.UserType = user.UserType
-	newParams.ExpiresAt = pgtype.Timestamp{Time: *user.ExpiresAt}
+	// Logging to confirm parameters are set correctly
+	log.Printf("[INFO] UpdateUserParams: %+v", newParams.Type)
 
-	log.Printf("[INFO] YYYYYYYYYYYYYYY!!!   %v", newParams.FirstName)
-	err := ur.queries.UpdateUser(ctx, newParams)
-	if err != nil {
+	// Execute the update query
+	if err := ur.queries.UpdateUser(ctx, newParams); err != nil {
+		log.Printf("[ERROR] Failed to update user: %v", err)
 		return domain.User{}, err
 	}
 
-	return ur.GetUserByID(ctx, user.ID)
+	// Retrieve and return the updated user
+	return ur.GetByID(ctx, user.ID)
 }
 
 // SoftDeleteUser soft deletes a user by setting the deleted_at timestamp.
-func (ur *userRepository) SoftDeleteUser(ctx context.Context, id uuid.UUID) error {
+func (ur *userRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	return ur.queries.SoftDeleteUser(ctx, id)
 }
 
 // UserExpiresAt sets the expiration date for a user.
-func (ur *userRepository) UserExpiresAt(ctx context.Context, id uuid.UUID, expiresAt time.Time) error {
+func (ur *userRepository) ExpiresAt(ctx context.Context, id uuid.UUID, expiresAt time.Time) error {
 	return ur.queries.UserExpiresAt(ctx, db.UserExpiresAtParams{
 		ID:        id,
 		ExpiresAt: pgtype.Timestamp{Time: expiresAt, Valid: true},
@@ -196,7 +202,7 @@ func (ur *userRepository) UserExpiresAt(ctx context.Context, id uuid.UUID, expir
 }
 
 // GetUserRole retrieves the role of a user by ID.
-func (ur *userRepository) GetUserRole(ctx context.Context, id uuid.UUID) (string, error) {
+func (ur *userRepository) GetRole(ctx context.Context, id uuid.UUID) (string, error) {
 	role, err := ur.queries.GetUserRole(ctx, id)
 	if err != nil {
 		if errors.Is(err, db.ErrNoRows) {
@@ -208,7 +214,7 @@ func (ur *userRepository) GetUserRole(ctx context.Context, id uuid.UUID) (string
 }
 
 // SetupUserRole sets the role of a user.
-func (ur *userRepository) SetupUserRole(ctx context.Context, id uuid.UUID, role string) error {
+func (ur *userRepository) SetupRole(ctx context.Context, id uuid.UUID, role string) error {
 	return ur.queries.SetupUserRole(ctx, db.SetupUserRoleParams{
 		ID:   id,
 		Role: role,
@@ -229,7 +235,7 @@ func mapDBUserToDomainUser(dbUser db.User) domain.User {
 		Password:  dbUser.PasswordHash,
 		Pin:       int(dbUser.Pin.Int32),
 		Verified:  dbUser.Verified,
-		UserType:  dbUser.UserType,
+		Type:      dbUser.Type,
 		ExpiresAt: extractTimePtr(dbUser.ExpiresAt),
 	}
 }

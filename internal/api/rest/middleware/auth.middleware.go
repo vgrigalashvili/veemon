@@ -60,7 +60,7 @@ func AuthMiddleware(tm token.Maker) fiber.Handler {
 			// Return a 401 Unauthorized response if the token is invalid or expired.
 			return ctx.Status(http.StatusUnauthorized).JSON(&fiber.Map{
 				"success": false,
-				"data":    ErrInvalidOrExpiredToken,
+				"data":    ErrInvalidOrExpiredToken.Error(),
 			})
 		}
 		// Store the token payload in the request context for later use.

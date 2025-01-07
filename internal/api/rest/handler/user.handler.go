@@ -118,7 +118,7 @@ func (uh *UserHandler) get(ctx *fiber.Ctx) error {
 			log.Printf("[INFO] no user mobile provided in the request query parameter")
 			return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 				"success": false,
-				"data":    ErrInvalidQueryParam,
+				"data":    ErrInvalidQueryParam.Error(),
 			})
 		}
 		user, err := uh.userService.GetUserByMobile(mobileParam)
@@ -126,7 +126,7 @@ func (uh *UserHandler) get(ctx *fiber.Ctx) error {
 			log.Printf("[ERROR] user not found for mobile: %s: %v", mobileParam, err)
 			return ctx.Status(http.StatusNotFound).JSON(&fiber.Map{
 				"success": false,
-				"data":    ErrNotFound,
+				"data":    ErrNotFound.Error(),
 			})
 		}
 		return ctx.Status(http.StatusOK).JSON(&fiber.Map{
@@ -148,7 +148,7 @@ func (uh *UserHandler) get(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] user not found for ID %s: %v", userID, err)
 		return ctx.Status(http.StatusNotFound).JSON(&fiber.Map{
 			"success": false,
-			"data":    ErrNotFound,
+			"data":    ErrNotFound.Error(),
 		})
 	}
 	return ctx.Status(http.StatusOK).JSON(&fiber.Map{
@@ -164,14 +164,14 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 	if requesterID == nil {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
-			"data":    ErrUnauthorized,
+			"data":    ErrUnauthorized.Error(),
 		})
 	}
 	requesterRole := ctx.Locals("userRole")
 	if requesterRole == "" {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
-			"data":    ErrUnverified,
+			"data":    ErrUnverified.Error(),
 		})
 	}
 	// Parse the user ID from the request URL
@@ -179,7 +179,7 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 	if requestedID == "" {
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    ErrInvalidQueryParam,
+			"data":    ErrInvalidQueryParam.Error(),
 		})
 	}
 	// Parse the user ID from query parameters (or include it in the body, if preferred).
@@ -197,12 +197,9 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] invalid JSON body in request: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    ErrInvalidRequestJSON,
+			"data":    ErrInvalidRequestJSON.Error(),
 		})
 	}
-
-	log.Printf("[DEBUG] requester data!!!!!!!!!!!!!!!!!: %s", fmt.Sprint(*updateData.FirstName))
-
 	if fmt.Sprint(requestedID) != fmt.Sprint(requesterID) && fmt.Sprint(requesterRole) != "super" {
 		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"success": false,
@@ -223,7 +220,7 @@ func (uh *UserHandler) update(ctx *fiber.Ctx) error {
 		log.Printf("[ERROR] validation error: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
 			"success": false,
-			"data":    ErrValidationField,
+			"data":    ErrValidationField.Error(),
 		})
 	}
 
