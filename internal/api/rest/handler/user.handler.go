@@ -79,7 +79,7 @@ func (uh *UserHandler) add(ctx *fiber.Ctx) error {
 		Role:      userData.Role,
 	}
 	// Call the service to create the user.
-	userID, err := uh.userService.AddUser(user)
+	userID, err := uh.userService.Add(user)
 	if err != nil {
 		log.Printf("[ERROR] failed to create user: %v", err)
 		if errors.Is(err, ErrUniqueMobileComplaint) {
@@ -143,7 +143,7 @@ func (uh *UserHandler) get(ctx *fiber.Ctx) error {
 			"data":    ErrInvalidUUIDFormat.Error(),
 		})
 	}
-	user, err := uh.userService.GetUserByID(userID)
+	user, err := uh.userService.GetBID(userID)
 	if err != nil {
 		log.Printf("[ERROR] user not found for ID %s: %v", userID, err)
 		return ctx.Status(http.StatusNotFound).JSON(&fiber.Map{

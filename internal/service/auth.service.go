@@ -47,7 +47,7 @@ func (as *AuthService) HandleSignUpProcesses(args dto.AuthSignUp) (string, error
 		Mobile: args.Mobile,
 	}
 
-	userID, err := as.UserService.AddUser(newUser)
+	userID, err := as.UserService.Add(newUser)
 	if err != nil {
 		log.Printf("[ERROR] failed to add user: %v", err)
 		return "", err

@@ -27,7 +27,11 @@ func NewUserService(userRepo repository.UserRepository) *UserService {
 	}
 	return &UserService{UserRepo: userRepo}
 }
-func (us *UserService) AddUser(args domain.User) (string, error) {
+func (us *UserService) Add(args domain.User) (string, error) {
+	if us.UserRepo == nil {
+		log.Printf("[ERROR] UserRepo is not initialized")
+		return "", fmt.Errorf("UserRepo is not initialized")
+	}
 
 	password, err := helper.GeneratePassword()
 	log.Printf("[INFO]: Generating password %v", password)
@@ -64,12 +68,12 @@ func (us *UserService) AddUser(args domain.User) (string, error) {
 
 // FindUserByID retrieves a user by their unique ID.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (us *UserService) GetUserByID(userID uuid.UUID) (domain.User, error) {
+func (us *UserService) GetBID(userID uuid.UUID) (domain.User, error) {
 	if us.UserRepo == nil {
 		log.Printf("[ERROR] UserRepo is not initialized")
 		return domain.User{}, fmt.Errorf("UserRepo is not initialized")
 	}
-	user, err := us.UserRepo.GetByID(context.Background(), userID)
+	user, err := us.UserRepo.GetBID(context.Background(), userID)
 	if err != nil {
 		log.Printf("[INFO] not found user by ID %s: %v", userID, err)
 		return domain.User{}, fmt.Errorf("could not find user by ID: %w", err)
@@ -86,7 +90,7 @@ func (us *UserService) CheckUserByMobile(mobile string) bool {
 		return false
 	}
 
-	if ok := us.UserRepo.CheckByMobile(context.Background(), mobile); !ok {
+	if ok := us.UserRepo.CheckBMobile(context.Background(), mobile); !ok {
 		log.Printf("[ERROR] User with mobile %s already exists", mobile)
 		return false
 	}
@@ -96,7 +100,7 @@ func (us *UserService) CheckUserByMobile(mobile string) bool {
 // FindUserByEmail retrieves a user by their email address.
 // Returns the user or an error if the user could not be found or if an error occurs.
 func (us *UserService) CheckUserByEmail(email string) (bool, error) {
-	if ok := us.UserRepo.CheckByEmail(context.Background(), email); !ok {
+	if ok := us.UserRepo.CheckBEmail(context.Background(), email); !ok {
 		return false, ErrUserNotFound
 	}
 	return true, nil
@@ -117,7 +121,7 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 		return domain.User{}, fmt.Errorf("nothing to update")
 	}
 	// Fetch the existing user from the database.
-	user, err := us.UserRepo.GetByID(context.Background(), userID)
+	user, err := us.UserRepo.GetBID(context.Background(), userID)
 	if err != nil {
 		log.Printf("[ERROR] Error finding user by ID %s: %v", userID, err)
 	}
@@ -178,7 +182,7 @@ func (us *UserService) GetAllUsers(limit, offset int) ([]domain.User, error) {
 // GetUserByMobile retrieves a user by their mobile number.
 // Returns the user or an error if the user could not be found or if an error occurs.
 func (us *UserService) GetUserByMobile(mobile string) (domain.User, error) {
-	user, err := us.UserRepo.GetByMobile(context.Background(), mobile)
+	user, err := us.UserRepo.GetBMobile(context.Background(), mobile)
 	if err != nil {
 		log.Printf("[ERROR] Error finding user by mobile %s: %v", mobile, err)
 		return domain.User{}, fmt.Errorf("could not find user by mobile: %w", err)
@@ -189,7 +193,7 @@ func (us *UserService) GetUserByMobile(mobile string) (domain.User, error) {
 // GetUserById retrieves a user by their unique ID.
 // Returns the user or an error if the user could not be found or if an error occurs.
 func (us *UserService) GetUserById(userID uuid.UUID) (domain.User, error) {
-	user, err := us.UserRepo.GetByID(context.Background(), userID)
+	user, err := us.UserRepo.GetBID(context.Background(), userID)
 	if err != nil {
 		log.Printf("[ERROR] Error finding user by ID %s: %v", userID, err)
 		return domain.User{}, fmt.Errorf("could not find user by ID: %w", err)

@@ -42,12 +42,12 @@ type (
 		SetupRole(ctx context.Context, id uuid.UUID, role string) error
 	}
 	UserGetters interface {
-		GetByMobile(ctx context.Context, mobile string) (domain.User, error)
-		GetByID(ctx context.Context, id uuid.UUID) (domain.User, error)
+		GetBMobile(ctx context.Context, mobile string) (domain.User, error)
+		GetBID(ctx context.Context, id uuid.UUID) (domain.User, error)
 		GetRole(ctx context.Context, id uuid.UUID) (string, error)
 		GetAll(ctx context.Context, limit, offset int) ([]domain.User, error)
-		CheckByMobile(ctx context.Context, mobile string) bool
-		CheckByEmail(ctx context.Context, email string) bool
+		CheckBMobile(ctx context.Context, mobile string) bool
+		CheckBEmail(ctx context.Context, email string) bool
 	}
 )
 
@@ -89,7 +89,7 @@ func (ur *userRepository) Add(ctx context.Context, user domain.User) (domain.Use
 
 // GetUserByID retrieves a user by ID, excluding soft-deleted users.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (ur *userRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.User, error) {
+func (ur *userRepository) GetBID(ctx context.Context, id uuid.UUID) (domain.User, error) {
 	dbUser, err := ur.queries.WhoIsBID(ctx, id)
 	if err != nil {
 		if errors.Is(err, db.ErrNoRows) {
@@ -119,7 +119,7 @@ func (ur *userRepository) GetAll(ctx context.Context, limit, offset int) ([]doma
 
 // GetUserByMobile retrieves a user by mobile number.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (ur *userRepository) GetByMobile(ctx context.Context, mobile string) (domain.User, error) {
+func (ur *userRepository) GetBMobile(ctx context.Context, mobile string) (domain.User, error) {
 	dbUser, err := ur.queries.WhoIsBMobile(ctx, mobile)
 	if err != nil {
 		if errors.Is(err, db.ErrNoRows) {
@@ -132,7 +132,7 @@ func (ur *userRepository) GetByMobile(ctx context.Context, mobile string) (domai
 
 // CheckUserExistsByMobile checks if a user exists with the given mobile number.
 // Returns true if the user exists, false otherwise.
-func (ur *userRepository) CheckByMobile(ctx context.Context, mobile string) bool {
+func (ur *userRepository) CheckBMobile(ctx context.Context, mobile string) bool {
 	_, err := ur.queries.WhoIsBMobile(ctx, mobile)
 	if err != nil {
 		// Check if the error is due to no rows being found
@@ -147,7 +147,7 @@ func (ur *userRepository) CheckByMobile(ctx context.Context, mobile string) bool
 
 // CheckUserExistsByEmail checks if a user exists with the given email address.
 // Returns true if the user exists, false otherwise.
-func (ur *userRepository) CheckByEmail(ctx context.Context, email string) bool {
+func (ur *userRepository) CheckBEmail(ctx context.Context, email string) bool {
 	_, err := ur.queries.WhoIsBEmail(ctx, pgtype.Text{String: email})
 	if err != nil && errors.Is(err, db.ErrNoRows) {
 		return false
@@ -185,7 +185,7 @@ func (ur *userRepository) Update(ctx context.Context, user domain.User) (domain.
 	}
 
 	// Retrieve and return the updated user
-	return ur.GetByID(ctx, user.ID)
+	return ur.GetBID(ctx, user.ID)
 }
 
 // SoftDeleteUser soft deletes a user by setting the deleted_at timestamp.
