@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vgrigalashvili/veemon/internal/domain"
+
 	"github.com/vgrigalashvili/veemon/internal/dto"
 	"github.com/vgrigalashvili/veemon/internal/helper"
+	"github.com/vgrigalashvili/veemon/internal/model"
 	"github.com/vgrigalashvili/veemon/internal/repository"
 )
 
@@ -27,7 +28,7 @@ func NewUserService(userRepo repository.UserRepository) *UserService {
 	}
 	return &UserService{UserRepo: userRepo}
 }
-func (us *UserService) Add(args domain.User) (string, error) {
+func (us *UserService) Add(args model.User) (string, error) {
 	if us.UserRepo == nil {
 		log.Printf("[ERROR] UserRepo is not initialized")
 		return "", fmt.Errorf("UserRepo is not initialized")
@@ -68,15 +69,15 @@ func (us *UserService) Add(args domain.User) (string, error) {
 
 // FindUserByID retrieves a user by their unique ID.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (us *UserService) GetBID(userID uuid.UUID) (domain.User, error) {
+func (us *UserService) GetBID(userID uuid.UUID) (model.User, error) {
 	if us.UserRepo == nil {
 		log.Printf("[ERROR] UserRepo is not initialized")
-		return domain.User{}, fmt.Errorf("UserRepo is not initialized")
+		return model.User{}, fmt.Errorf("UserRepo is not initialized")
 	}
 	user, err := us.UserRepo.GetBID(context.Background(), userID)
 	if err != nil {
 		log.Printf("[INFO] not found user by ID %s: %v", userID, err)
-		return domain.User{}, fmt.Errorf("could not find user by ID: %w", err)
+		return model.User{}, fmt.Errorf("could not find user by ID: %w", err)
 	}
 	return user, nil
 }
@@ -108,7 +109,7 @@ func (us *UserService) CheckUserByEmail(email string) (bool, error) {
 
 // UpdateUser updates the details of an existing user based on the provided arguments.
 // Returns the updated user or an error if the operation fails.
-func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (domain.User, error) {
+func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (model.User, error) {
 	// Check if all fields in the arguments are nil
 	if arguments.FirstName == nil &&
 		arguments.LastName == nil &&
@@ -118,7 +119,7 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 		arguments.Email == nil &&
 		arguments.Password == nil {
 		log.Printf("[INFO] No arguments provided for user update")
-		return domain.User{}, fmt.Errorf("nothing to update")
+		return model.User{}, fmt.Errorf("nothing to update")
 	}
 	// Fetch the existing user from the database.
 	user, err := us.UserRepo.GetBID(context.Background(), userID)
@@ -150,7 +151,7 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 		hashedPassword, err := helper.HashPassword(*arguments.Password)
 		if err != nil {
 			log.Printf("[ERROR] Failed to hash password: %v", err)
-			return domain.User{}, fmt.Errorf("failed to hash the password: %w", err)
+			return model.User{}, fmt.Errorf("failed to hash the password: %w", err)
 		}
 		user.Password = hashedPassword
 	}
@@ -162,7 +163,7 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 	updatedUser, err := us.UserRepo.Update(context.Background(), user)
 	if err != nil {
 		log.Printf("[ERROR] Failed to update user: %v", err)
-		return domain.User{}, fmt.Errorf("failed to update user: %w", err)
+		return model.User{}, fmt.Errorf("failed to update user: %w", err)
 	}
 
 	return updatedUser, nil
@@ -170,7 +171,7 @@ func (us *UserService) UpdateUser(userID uuid.UUID, arguments dto.UpdateUser) (d
 
 // GetAllUsers retrieves all user records from the database.
 // Returns a slice of users or an error if the operation fails.
-func (us *UserService) GetAllUsers(limit, offset int) ([]domain.User, error) {
+func (us *UserService) GetAllUsers(limit, offset int) ([]model.User, error) {
 	users, err := us.UserRepo.GetAll(context.Background(), limit, offset)
 	if err != nil {
 		log.Printf("[ERROR] Error getting all users: %v", err)
@@ -181,22 +182,22 @@ func (us *UserService) GetAllUsers(limit, offset int) ([]domain.User, error) {
 
 // GetUserByMobile retrieves a user by their mobile number.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (us *UserService) GetUserByMobile(mobile string) (domain.User, error) {
+func (us *UserService) GetUserByMobile(mobile string) (model.User, error) {
 	user, err := us.UserRepo.GetBMobile(context.Background(), mobile)
 	if err != nil {
 		log.Printf("[ERROR] Error finding user by mobile %s: %v", mobile, err)
-		return domain.User{}, fmt.Errorf("could not find user by mobile: %w", err)
+		return model.User{}, fmt.Errorf("could not find user by mobile: %w", err)
 	}
 	return user, nil
 }
 
 // GetUserById retrieves a user by their unique ID.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (us *UserService) GetUserById(userID uuid.UUID) (domain.User, error) {
+func (us *UserService) GetUserById(userID uuid.UUID) (model.User, error) {
 	user, err := us.UserRepo.GetBID(context.Background(), userID)
 	if err != nil {
 		log.Printf("[ERROR] Error finding user by ID %s: %v", userID, err)
-		return domain.User{}, fmt.Errorf("could not find user by ID: %w", err)
+		return model.User{}, fmt.Errorf("could not find user by ID: %w", err)
 	}
 	return user, nil
 }

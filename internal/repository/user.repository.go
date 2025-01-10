@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	db "github.com/vgrigalashvili/veemon/internal/db/sqlc"
-	"github.com/vgrigalashvili/veemon/internal/domain"
+	"github.com/vgrigalashvili/veemon/internal/model"
 )
 
 var (
@@ -35,17 +35,17 @@ type (
 		UserGetters
 	}
 	UserModifiers interface {
-		Add(ctx context.Context, user domain.User) (domain.User, error)
-		Update(ctx context.Context, user domain.User) (domain.User, error)
+		Add(ctx context.Context, user model.User) (model.User, error)
+		Update(ctx context.Context, user model.User) (model.User, error)
 		SoftDelete(ctx context.Context, id uuid.UUID) error
 		ExpiresAt(ctx context.Context, id uuid.UUID, expiresAt time.Time) error
 		SetupRole(ctx context.Context, id uuid.UUID, role string) error
 	}
 	UserGetters interface {
-		GetBMobile(ctx context.Context, mobile string) (domain.User, error)
-		GetBID(ctx context.Context, id uuid.UUID) (domain.User, error)
+		GetBMobile(ctx context.Context, mobile string) (model.User, error)
+		GetBID(ctx context.Context, id uuid.UUID) (model.User, error)
 		GetRole(ctx context.Context, id uuid.UUID) (string, error)
-		GetAll(ctx context.Context, limit, offset int) ([]domain.User, error)
+		GetAll(ctx context.Context, limit, offset int) ([]model.User, error)
 		CheckBMobile(ctx context.Context, mobile string) bool
 		CheckBEmail(ctx context.Context, email string) bool
 	}
@@ -67,7 +67,7 @@ func NewUserRepository(q *db.Queries) *userRepository {
 
 // CreateUser inserts a new user into the database.
 // Returns the created user or an error if the operation failed.
-func (ur *userRepository) Add(ctx context.Context, user domain.User) (domain.User, error) {
+func (ur *userRepository) Add(ctx context.Context, user model.User) (model.User, error) {
 	dbUser, err := ur.queries.AddUser(ctx, db.AddUserParams{
 		ID:           user.ID,
 		Role:         user.Role,
@@ -82,27 +82,27 @@ func (ur *userRepository) Add(ctx context.Context, user domain.User) (domain.Use
 		ExpiresAt:    pgtype.Timestamp{Time: *user.ExpiresAt, Valid: true},
 	})
 	if err != nil {
-		return domain.User{}, err
+		return model.User{}, err
 	}
-	return mapDBUserToDomainUser(dbUser), nil
+	return mapDBUserTomodelUser(dbUser), nil
 }
 
 // GetUserByID retrieves a user by ID, excluding soft-deleted users.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (ur *userRepository) GetBID(ctx context.Context, id uuid.UUID) (domain.User, error) {
+func (ur *userRepository) GetBID(ctx context.Context, id uuid.UUID) (model.User, error) {
 	dbUser, err := ur.queries.WhoIsBID(ctx, id)
 	if err != nil {
 		if errors.Is(err, db.ErrNoRows) {
-			return domain.User{}, ErrUserNotFound
+			return model.User{}, ErrUserNotFound
 		}
-		return domain.User{}, err
+		return model.User{}, err
 	}
-	return mapDBUserToDomainUser(dbUser), nil
+	return mapDBUserTomodelUser(dbUser), nil
 }
 
 // GetAllUsers retrieves all users with pagination, excluding soft-deleted users.
 // Returns a slice of users or an error if the operation failed.
-func (ur *userRepository) GetAll(ctx context.Context, limit, offset int) ([]domain.User, error) {
+func (ur *userRepository) GetAll(ctx context.Context, limit, offset int) ([]model.User, error) {
 	dbUsers, err := ur.queries.ListUsers(ctx, db.ListUsersParams{
 		Limit:  int32(limit),
 		Offset: int32(offset),
@@ -110,24 +110,24 @@ func (ur *userRepository) GetAll(ctx context.Context, limit, offset int) ([]doma
 	if err != nil {
 		return nil, err
 	}
-	var users []domain.User
+	var users []model.User
 	for _, dbUser := range dbUsers {
-		users = append(users, mapDBUserToDomainUser(dbUser))
+		users = append(users, mapDBUserTomodelUser(dbUser))
 	}
 	return users, nil
 }
 
 // GetUserByMobile retrieves a user by mobile number.
 // Returns the user or an error if the user could not be found or if an error occurs.
-func (ur *userRepository) GetBMobile(ctx context.Context, mobile string) (domain.User, error) {
+func (ur *userRepository) GetBMobile(ctx context.Context, mobile string) (model.User, error) {
 	dbUser, err := ur.queries.WhoIsBMobile(ctx, mobile)
 	if err != nil {
 		if errors.Is(err, db.ErrNoRows) {
-			return domain.User{}, ErrUserNotFound
+			return model.User{}, ErrUserNotFound
 		}
-		return domain.User{}, err
+		return model.User{}, err
 	}
-	return mapDBUserToDomainUser(dbUser), nil
+	return mapDBUserTomodelUser(dbUser), nil
 }
 
 // CheckUserExistsByMobile checks if a user exists with the given mobile number.
@@ -159,7 +159,7 @@ func (ur *userRepository) CheckBEmail(ctx context.Context, email string) bool {
 
 // UpdateUser updates an existing user in the database.
 // Returns the updated user or an error if the operation failed.
-func (ur *userRepository) Update(ctx context.Context, user domain.User) (domain.User, error) {
+func (ur *userRepository) Update(ctx context.Context, user model.User) (model.User, error) {
 	// Constructing UpdateUserParams with proper pgtype values
 	newParams := db.UpdateUserParams{
 		ID:           user.ID,
@@ -181,7 +181,7 @@ func (ur *userRepository) Update(ctx context.Context, user domain.User) (domain.
 	// Execute the update query
 	if err := ur.queries.UpdateUser(ctx, newParams); err != nil {
 		log.Printf("[ERROR] Failed to update user: %v", err)
-		return domain.User{}, err
+		return model.User{}, err
 	}
 
 	// Retrieve and return the updated user
@@ -221,9 +221,9 @@ func (ur *userRepository) SetupRole(ctx context.Context, id uuid.UUID, role stri
 	})
 }
 
-// mapDBUserToDomainUser maps a db.User to a domain.User.
-func mapDBUserToDomainUser(dbUser db.User) domain.User {
-	return domain.User{
+// mapDBUserTomodelUser maps a db.User to a model.User.
+func mapDBUserTomodelUser(dbUser db.User) model.User {
+	return model.User{
 		ID:        dbUser.ID,
 		CreatedAt: dbUser.CreatedAt.Time,
 		UpdatedAt: dbUser.UpdatedAt.Time,

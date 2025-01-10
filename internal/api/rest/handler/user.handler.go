@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/vgrigalashvili/veemon/internal/api/rest"
 	"github.com/vgrigalashvili/veemon/internal/api/rest/middleware"
-	"github.com/vgrigalashvili/veemon/internal/domain"
 	"github.com/vgrigalashvili/veemon/internal/dto"
+	"github.com/vgrigalashvili/veemon/internal/model"
 	"github.com/vgrigalashvili/veemon/internal/repository"
 	"github.com/vgrigalashvili/veemon/internal/service"
 )
@@ -71,7 +71,7 @@ func (uh *UserHandler) add(ctx *fiber.Ctx) error {
 		})
 	}
 
-	user := domain.User{
+	user := model.User{
 		FirstName: userData.FirstName,
 		LastName:  userData.LastName,
 		Mobile:    userData.Mobile,

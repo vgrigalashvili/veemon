@@ -6,9 +6,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/vgrigalashvili/veemon/internal/domain"
 	"github.com/vgrigalashvili/veemon/internal/dto"
 	"github.com/vgrigalashvili/veemon/internal/helper"
+	"github.com/vgrigalashvili/veemon/internal/model"
 	"github.com/vgrigalashvili/veemon/internal/token"
 )
 
@@ -43,7 +43,7 @@ func (as *AuthService) HandleSignUpProcesses(args dto.AuthSignUp) (string, error
 		return "", ErrUserAlreadyExists
 	}
 
-	newUser := domain.User{
+	newUser := model.User{
 		Mobile: args.Mobile,
 	}
 

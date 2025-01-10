@@ -1,4 +1,4 @@
-package domain
+package model
 
 type VerifyEmail struct {
 	Email      string `json:"email" gorm:"index;unique"` // The email of the user, unique.
