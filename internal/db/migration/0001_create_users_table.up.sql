@@ -23,20 +23,27 @@ CREATE TABLE users (
 -- ============================================
 CREATE TABLE tasks (
     id UUID PRIMARY KEY,                                     -- Unique identifier for each task
-	created_at TIMESTAMP NOT NULL DEFAULT now(),             -- Timestamp when the task was created
-	updated_at TIMESTAMP NOT NULL DEFAULT now(),             -- Timestamp when the task was last updated
-	deleted_at TIMESTAMP NULL,                               -- Timestamp for soft deletion
-	title TEXT NOT NULL,                                     -- Title of the task
+    created_at TIMESTAMP NOT NULL DEFAULT now(),             -- Timestamp when the task was created
+    updated_at TIMESTAMP NOT NULL DEFAULT now(),             -- Timestamp when the task was last updated
+    deleted_at TIMESTAMP NULL,                               -- Timestamp for soft deletion
+    title TEXT NOT NULL,                                     -- Title of the task
     description TEXT,                                        -- Description of the task
-	location TEXT,                                           -- Location of the task
-	address TEXT,                                            -- Address of the task
-	deadline TIMESTAMP,                                      -- Deadline for the task
-	budget NUMERIC(10, 2),                                   -- Budget for the task
-	status TEXT NOT NULL DEFAULT 'pending',                  -- Current status of the task (e.g., pending, in progress, completed)
+    location TEXT,                                           -- Location of the task
+    address TEXT,                                            -- Address of the task
+    deadline TIMESTAMP,                                      -- Deadline for the task
+    budget NUMERIC(10, 2),                                   -- Budget for the task
+    status TEXT NOT NULL DEFAULT 'pending'                  -- Current status of the task
+);  -- Added closing parenthesis and semicolon
+
 -- ============================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================
+-- Users table indexes
 CREATE INDEX idx_users_email ON users(email);          		-- Index for fast email lookups
 CREATE INDEX idx_users_mobile ON users(mobile);        		-- Index for fast mobile lookups
 CREATE INDEX idx_users_verified ON users(verified);    		-- Index for filtering verified users
 CREATE INDEX idx_users_expires_at ON users(expires_at);		-- Index for filtering expired accounts
+
+-- Consider adding indexes for tasks table (example)
+-- CREATE INDEX idx_tasks_status ON tasks(status);
+-- CREATE INDEX idx_tasks_deadline ON tasks(deadline);
