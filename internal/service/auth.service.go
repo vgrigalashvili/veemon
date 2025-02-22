@@ -1,15 +1,13 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"log"
-	"time"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/vgrigalashvili/veemon/internal/domain"
 	"github.com/vgrigalashvili/veemon/internal/dto"
-	"github.com/vgrigalashvili/veemon/internal/helper"
-	"github.com/vgrigalashvili/veemon/internal/model"
-	"github.com/vgrigalashvili/veemon/internal/token"
+	"github.com/vgrigalashvili/veemon/pkg/token"
 )
 
 var (
@@ -31,23 +29,16 @@ func NewAuthService(token token.Maker, userService *UserService) *AuthService {
 		UserService: userService,
 	}
 }
-func (as *AuthService) HandleSignUpProcesses(args dto.AuthSignUp) (string, error) {
+func (as *AuthService) HandleSignUpProcesses(ctx *fiber.Ctx, args dto.AuthSignUp) (string, error) {
 	if as.UserService == nil {
 		return "", errors.New("internal server error: UserService is not initialized")
 	}
 
-	userExists := as.UserService.CheckUserByMobile(args.Mobile)
-
-	if userExists {
-		log.Printf("[ERROR] user with mobile %s already exists", args.Mobile)
-		return "", ErrUserAlreadyExists
+	newUser := domain.User{
+		Email: args.Email,
 	}
 
-	newUser := model.User{
-		Mobile: args.Mobile,
-	}
-
-	userID, err := as.UserService.Add(newUser)
+	userID, err := as.UserService.Create(newUser)
 	if err != nil {
 		log.Printf("[ERROR] failed to add user: %v", err)
 		return "", err
@@ -56,33 +47,33 @@ func (as *AuthService) HandleSignUpProcesses(args dto.AuthSignUp) (string, error
 	return userID, nil
 }
 
-func (as *AuthService) SignIn(args dto.AuthSignIn) (*token.Payload, error) {
-	existedUser, err := as.UserService.GetUserByMobile(args.Mobile)
-	if err != nil {
-		log.Printf("[ERROR] sign-in failed for mobile %s: user not found or database error: %v", args.Mobile, err)
-		return &token.Payload{}, err
-	}
+// func (as *AuthService) SignIn(args dto.AuthSignIn) (*token.Payload, error) {
+// 	existedUser, err := as.UserService.GetUserByMobile(args.Mobile)
+// 	if err != nil {
+// 		log.Printf("[ERROR] sign-in failed for mobile %s: user not found or database error: %v", args.Mobile, err)
+// 		return &token.Payload{}, err
+// 	}
 
-	if err := helper.CheckPassword(existedUser.Password, args.Password); err != nil {
-		log.Printf("[ERROR] invalid password attempt for user ID %s", existedUser.ID)
-		return &token.Payload{}, err
-	}
+// 	if err := helper.CheckPassword(existedUser.Password, args.Password); err != nil {
+// 		log.Printf("[ERROR] invalid password attempt for user ID %s", existedUser.ID)
+// 		return &token.Payload{}, err
+// 	}
 
-	duration := 24 * time.Hour
+// 	duration := 24 * time.Hour
 
-	tokenPayload, err := as.Token.CreateToken(existedUser.ID, existedUser.Email, existedUser.Role, duration)
-	if err != nil {
-		log.Printf("[ERROR] failed to create token for user ID %s: %v", existedUser.ID, err)
-		return &token.Payload{}, err
-	}
+// 	tokenPayload, err := as.Token.CreateToken(existedUser.ID, existedUser.Email, existedUser.Role, duration)
+// 	if err != nil {
+// 		log.Printf("[ERROR] failed to create token for user ID %s: %v", existedUser.ID, err)
+// 		return &token.Payload{}, err
+// 	}
 
-	return tokenPayload, nil
-}
+// 	return tokenPayload, nil
+// }
 
-func (as *AuthService) ForgotPassword() (string, error) {
-	return "", nil
-}
+// func (as *AuthService) ForgotPassword() (string, error) {
+// 	return "", nil
+// }
 
-func (as *AuthService) CreateVerifyEmail(ctx context.Context, email, secretCode string) (string, error) {
-	return "", nil
-}
+// func (as *AuthService) CreateVerifyEmail(ctx context.Context, email, secretCode string) (string, error) {
+// 	return "", nil
+// }
