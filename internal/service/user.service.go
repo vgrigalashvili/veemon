@@ -1,5 +1,3 @@
-// Package service provides business logic for user-related operations.
-// It interacts with the repository and helper packages for data management and utilities.
 package service
 
 import (
@@ -14,10 +12,8 @@ import (
 	"github.com/vgrigalashvili/veemon/pkg/helper"
 )
 
-// UserService is responsible for user-related operations and business logic.
-// It combines repository interactions with additional processes such as password hashing and token generation.
 type UserService struct {
-	UserRepo repository.UserRepository // UserRepository interface for user data access.
+	UserRepo repository.UserRepository
 }
 
 func NewUserService(userRepo repository.UserRepository) *UserService {
@@ -63,8 +59,6 @@ func (us *UserService) Create(args domain.User) (string, error) {
 	return createdUser.ID.String(), nil
 }
 
-// FindUserByID retrieves a user by their unique ID.
-// Returns the user or an error if the user could not be found or if an error occurs.
 func (us *UserService) GetBID(userID uuid.UUID) (*domain.User, error) {
 	if us.UserRepo == nil {
 		log.Printf("[ERROR] UserRepo is not initialized")

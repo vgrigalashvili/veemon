@@ -49,7 +49,7 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 		deviceType = "Mobile"
 	}
 	log.Printf("device type: %v", deviceType)
-	// Parse Request Body
+
 	if err := ctx.BodyParser(&request); err != nil {
 		log.Printf("[ERROR] invalid request body: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(fiber.Map{
@@ -61,7 +61,7 @@ func (ah *AuthHandler) signUp(ctx *fiber.Ctx) error {
 	if request.Email != "" {
 		request.Email = helper.NormalizeEmail(request.Email)
 	}
-	// Validate Request Struct
+
 	if err := ah.validator.ValidateStruct(&request); err != nil {
 		log.Printf("[ERROR] validation failed: %v", err)
 		return ctx.Status(http.StatusBadRequest).JSON(fiber.Map{

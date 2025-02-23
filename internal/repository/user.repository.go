@@ -25,7 +25,6 @@ var (
 	ErrUserNotCreated     = errors.New("user not created")
 )
 
-// UserRepository defines the methods for interacting with the user data store.
 type (
 	UserRepository interface {
 		Create(ctx context.Context, user domain.User) (*domain.User, error)
@@ -35,13 +34,10 @@ type (
 	}
 )
 
-// userRepository implements the UserRepository interface using sqlc.
 type userRepository struct {
 	queries *db.Queries
 }
 
-// NewUserRepository creates a new instance of userRepository.
-// It requires a *db.Queries instance to be passed in.
 func NewUserRepository(q *db.Queries) UserRepository {
 	if q == nil {
 		log.Fatalf("[FATAL] queries cannot be nil")

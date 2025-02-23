@@ -16,8 +16,6 @@ import (
 	"github.com/vgrigalashvili/veemon/internal/service"
 )
 
-// UserHandler is responsible for handling user-related operations.
-// It combines service interactions with API request/response handling.
 type UserHandler struct {
 	userService *service.UserService
 	handleError func(ctx *fiber.Ctx, err error) error // error handler function for handling API errors.
@@ -43,7 +41,6 @@ func InitializeUserHandler(rh *rest.RestHandler) {
 	// api.Patch("/user/update", authMiddleware, userHandler.update)
 }
 
-// add handles the creation of a new user.
 func (uh *UserHandler) add(ctx *fiber.Ctx) error {
 
 	// Parse the request body into the DTO.
@@ -53,7 +50,6 @@ func (uh *UserHandler) add(ctx *fiber.Ctx) error {
 		return uh.handleError(ctx, rest.ErrInvalidRequestJSON)
 	}
 
-	// Validate the input data.
 	validate := validator.New()
 	if err := validate.Struct(userData); err != nil {
 		if validationErrors, ok := err.(validator.ValidationErrors); ok {
@@ -77,7 +73,7 @@ func (uh *UserHandler) add(ctx *fiber.Ctx) error {
 		Email: userData.Email,
 		Role:  userData.Role,
 	}
-	// Call the service to create the user.
+
 	userID, err := uh.userService.Create(user)
 	if err != nil {
 		log.Printf("[ERROR] failed to create user: %v", err)
@@ -93,7 +89,6 @@ func (uh *UserHandler) add(ctx *fiber.Ctx) error {
 		})
 	}
 
-	// Return the created user.
 	return ctx.Status(http.StatusCreated).JSON(&fiber.Map{
 		"success": true,
 		"data":    userID,

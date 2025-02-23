@@ -1,5 +1,3 @@
-// Package middleware provides authentication and authorization middleware for the Fiber framework.
-// This includes verifying JWT or PASETO tokens and enforcing access control.
 package middleware
 
 import (
@@ -19,55 +17,50 @@ var (
 )
 
 const (
-	authorizationHeaderKey  = "authorization"         // Header key for the authorization token.
-	authorizationTypeBearer = "bearer"                // Expected token type in the authorization header.
-	authorizationPayloadKey = "authorization_payload" // Key used to store token payload in context locals.
+	authorizationHeaderKey  = "authorization"
+	authorizationTypeBearer = "bearer"
+	authorizationPayloadKey = "authorization_payload"
 )
 
-// AuthMiddleware is a middleware function that validates the authorization token in incoming requests.
-// It uses the provided token maker to verify the token and stores the payload in the request context.
 func AuthMiddleware(tm token.Maker) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		// Retrieve the authorization header.
+
 		authHeader := ctx.Get(authorizationHeaderKey)
 		if authHeader == "" {
 			log.Println("[WARN] Missing authorization header")
-			// Return a 401 Unauthorized response if the header is missing.
+
 			return ctx.Status(http.StatusUnauthorized).JSON(&fiber.Map{
 				"success": false,
 				"data":    ErrAuthHeaderRequired.Error(),
 			})
 		}
 
-		// Split the header into parts and validate the format.
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || strings.ToLower(parts[0]) != authorizationTypeBearer {
 			log.Printf("[WARN] Invalid authorization header format: %s", authHeader)
-			// Return a 401 Unauthorized response for invalid format.
+
 			return ctx.Status(http.StatusUnauthorized).JSON(&fiber.Map{
 				"success": false,
 				"data":    ErrInvalidAuthorizationHeaderFormat.Error(),
 			})
 		}
 
-		// Extract the token string from the header.
 		tokenString := parts[1]
 
-		// Verify the token using the token maker.
 		payload, err := tm.VerifyToken(tokenString)
 		if err != nil {
 			log.Printf("[ERROR] Token verification failed: %v", err)
-			// Return a 401 Unauthorized response if the token is invalid or expired.
+
 			return ctx.Status(http.StatusUnauthorized).JSON(&fiber.Map{
 				"success": false,
 				"data":    ErrInvalidOrExpiredToken.Error(),
 			})
 		}
-		// Store the token payload in the request context for later use.
+
 		ctx.Locals(authorizationPayloadKey, payload)
 		ctx.Locals("userID", payload.UserID)
 		ctx.Locals("userRole", payload.Role)
-		// Call the next middleware or handler in the chain.
+
 		return ctx.Next()
 	}
 }

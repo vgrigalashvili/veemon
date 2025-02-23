@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// AppConfig holds the configuration values for the application.
 type AppConfig struct {
 	ServiceName       string `mapstructure:"SERVICE_NAME"`
 	ServiceDomain     string `mapstructure:"SERVICE_DOMAIN"`
@@ -26,7 +25,6 @@ type AppConfig struct {
 	TokenSymmetricKey string `mapstructure:"TOKEN_SYMMETRIC_KEY"`
 }
 
-// SetupEnvironment reads and sets up the application environment configuration.
 func SetupEnvironment() (AppConfig, error) {
 	env := getEnvWithDefault("APP_ENV", "production")
 	log.Printf("[DEBUG] application running in: %s", env)
@@ -38,7 +36,6 @@ func SetupEnvironment() (AppConfig, error) {
 	return loadProductionConfig()
 }
 
-// Helper function to get an environment variable with a default fallback.
 func getEnvWithDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
@@ -46,7 +43,6 @@ func getEnvWithDefault(key, defaultValue string) string {
 	return defaultValue
 }
 
-// Load development configuration from the `.env` file.
 func loadDevelopmentConfig() (AppConfig, error) {
 	var appConfig AppConfig
 
@@ -94,7 +90,6 @@ func loadDevelopmentConfig() (AppConfig, error) {
 	return appConfig, nil
 }
 
-// Load production configuration directly from environment variables.
 func loadProductionConfig() (AppConfig, error) {
 	var appConfig AppConfig
 

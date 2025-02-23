@@ -11,18 +11,15 @@ type APIErrorHandler interface {
 	LogError(err error)
 }
 
-// APIError represents a structured error for API responses.
 type APIError struct {
 	StatusCode int    `json:"status_code"`
 	Message    string `json:"message"`
 }
 
-// Error implements the error interface for APIError.
 func (e *APIError) Error() string {
 	return e.Message
 }
 
-// NewAPIError creates a new instance of APIError.
 func NewAPIError(statusCode int, message string) *APIError {
 	return &APIError{
 		StatusCode: statusCode,
@@ -33,10 +30,9 @@ func NewAPIError(statusCode int, message string) *APIError {
 type DefaultAPIErrorHandler struct{}
 
 func (h *DefaultAPIErrorHandler) HandleError(c *fiber.Ctx, err error) error {
-	// Log error for debugging
+
 	h.LogError(err)
 
-	// Default response
 	statusCode := fiber.StatusInternalServerError
 	message := "Internal Server Error"
 

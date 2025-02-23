@@ -8,7 +8,6 @@ import (
 	"github.com/vgrigalashvili/veemon/pkg/token"
 )
 
-// common error messages for REST handlers.
 var (
 	ErrEmailQueryParamRequired = errors.New("query parameter required: email")
 	ErrUnverified              = errors.New("unverified user")              // Error returned when a requester is unverified
@@ -21,11 +20,10 @@ var (
 	ErrValidationField         = errors.New("validation field")             // Error returned when a request	validation field
 )
 
-// central structure for handling API routes and their dependencies.
 type RestHandler struct {
-	API     *fiber.App  // Fiber app instance used for routing.
-	Querier *db.Queries // database connection instance.
-	Token   token.Maker // token maker instance for authentication and authorization.
-	// ErrorHandler APIErrorHandler      // error handler for API requests.
-	// SEC string // symmetric key used for secure operations.
+	API     *fiber.App
+	Querier *db.Queries
+	Token   token.Maker
+	// ErrorHandler APIErrorHandler
+	// SEC string
 }
