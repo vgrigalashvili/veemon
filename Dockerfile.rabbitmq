@@ -1,0 +1,4 @@
+FROM rabbitmq:3-management
+
+# Enable required plugins during build time
+RUN rabbitmq-plugins enable --offline rabbitmq_management rabbitmq_mqtt

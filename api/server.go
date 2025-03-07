@@ -14,9 +14,11 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
+	swagger "github.com/swaggo/fiber-swagger"
 	"github.com/vgrigalashvili/veemon/api/rest"
 	"github.com/vgrigalashvili/veemon/api/rest/handler"
 	"github.com/vgrigalashvili/veemon/internal/config"
+	_ "github.com/vgrigalashvili/veemon/internal/docs"
 	"github.com/vgrigalashvili/veemon/pkg/mail"
 	"github.com/vgrigalashvili/veemon/pkg/token"
 	"github.com/vgrigalashvili/veemon/pkg/worker"
@@ -34,6 +36,7 @@ func StartServer(ac config.AppConfig) {
 		ServerHeader:  "veemon",
 		BodyLimit:     1 * 1024,
 	})
+	api.Get("/swagger/*", swagger.WrapHandler)
 
 	log.Printf("[INFO] Starting Fiber with config: AppName=%s, CaseSensitive=%v, StrictRouting=%v, BodyLimit=%d",
 		api.Config().AppName, api.Config().CaseSensitive, api.Config().StrictRouting, api.Config().BodyLimit)
@@ -92,8 +95,8 @@ func StartServer(ac config.AppConfig) {
 }
 
 func initializeHandler(rh *rest.RestHandler) {
-	handler.InitializeUserHandler(rh)
 	handler.InitializeAuthHandler(rh)
+	handler.InitializeUserHandler(rh)
 }
 
 func runTaskProcessor(ctx context.Context, waitGroup *errgroup.Group, redisAddr string, db *db.Queries, mailer mail.EmailSender) {

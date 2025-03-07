@@ -41,6 +41,16 @@ func InitializeUserHandler(rh *rest.RestHandler) {
 	// api.Patch("/user/update", authMiddleware, userHandler.update)
 }
 
+// @Summary Add a User
+// @Description Creates a new user in the system.
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param user body dto.CreateUser true "User Data"
+// @Success 201 {object} dto.StandardResponse
+// @Failure 400 {object} dto.StandardResponse
+// @Failure 500 {object} dto.StandardResponse
+// @Router /user/add [post]
 func (uh *UserHandler) add(ctx *fiber.Ctx) error {
 
 	// Parse the request body into the DTO.

@@ -1,0 +1,70 @@
+definitions:
+  dto.CreateUser:
+    properties:
+      email:
+        type: string
+      first_name:
+        minLength: 2
+        type: string
+      last_name:
+        minLength: 3
+        type: string
+      mobile:
+        minLength: 9
+        type: string
+      password:
+        minLength: 6
+        type: string
+      role:
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - mobile
+    - role
+    type: object
+  dto.StandardResponse:
+    properties:
+      data: {}
+      success:
+        type: boolean
+    type: object
+host: localhost:3000
+info:
+  contact: {}
+  description: This is the API for the Veemon application.
+  title: veemon API
+  version: "1.0"
+paths:
+  /user/add:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user in the system.
+      parameters:
+      - description: User Data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateUser'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.StandardResponse'
+      summary: Add a User
+      tags:
+      - Users
+swagger: "2.0"

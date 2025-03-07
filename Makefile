@@ -1,17 +1,20 @@
 DEV_DB_URI = postgres://postgres:1234@localhost:5432/dev-db?sslmode=disable
 
 run: ## Run the application in development mode
-	nodemon --watch './**/*.go' --signal SIGTERM --exec APP_ENV=dev 'go' run cmd/app/main.go
+	nodemon --watch './**/*.go' --signal SIGTERM --exec APP_ENV=dev 'go' run main.go
 
-dev-db-up: ## Start the development database and Redis
-	docker compose up dev-db redis -d
+dev-db-up: ## Start the development database, Redis, and RabbitMQ
+	docker compose up dev-db redis rabbitmq -d
 
-dev-db-rm: ## Remove the development database and Redis containers
+dev-db-rm: ## Remove the development database, Redis, and RabbitMQ containers
 	docker compose down -v
 	# docker compose rm dev-db -s -f -v
 
 dev-db-migrate-up: ## Run database migrations for the development database
 	migrate -path ./internal/repository/migrations -database "$(DEV_DB_URI)" -verbose up
+
+swagger: ## Run swag init to generate swagger docs
+	swag init -g main.go --output internal/docs
 
 sqlc: ## Generate SQL code with sqlc
 	sqlc generate

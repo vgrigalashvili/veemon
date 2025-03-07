@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   dev-db:
     image: postgres:latest
@@ -7,7 +9,7 @@ services:
       POSTGRES_PASSWORD: 1234
       POSTGRES_DB: dev-db
     ports:
-      - 5432:5432
+      - '5432:5432'
     volumes:
       - db:/var/lib/postgresql/data
     networks:
@@ -17,7 +19,22 @@ services:
     image: redis:latest
     restart: always
     ports:
-      - 6379:6379
+      - '6379:6379'
+    networks:
+      - dev-network
+
+  rabbitmq:
+    build:
+      context: .
+      dockerfile: Dockerfile.rabbitmq
+    restart: always
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+      - '1883:1883'
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     networks:
       - dev-network
 
